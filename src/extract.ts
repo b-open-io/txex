@@ -3,196 +3,229 @@
  * Supports: B://, BCAT, 1Sat Ordinals
  */
 
-import type { Script, LockingScript } from "@bsv/sdk";
-import { parseB, isB, B_PREFIX } from "./protocols/b.js";
-import { parseOrdinals, isOrdinals } from "./protocols/ordinals.js";
+import type { LockingScript, Script } from "@bsv/sdk";
 import {
-  parseBCATMetadata,
-  parseBCATChunk,
-  isBCATMetadata,
-  isBCATChunk,
-  BCAT_PREFIX,
-  BCATPART_PREFIX,
+	ChunkNotFoundError,
+	OutputNotFoundError,
+	ProtocolError,
+} from "./errors.js";
+import { isB, parseB } from "./protocols/b.js";
+import {
+	isBCATChunk,
+	isBCATMetadata,
+	parseBCATChunk,
+	parseBCATMetadata,
 } from "./protocols/bcat.js";
+import { isOrdinals, parseOrdinals } from "./protocols/ordinals.js";
 import { fetchTx } from "./providers/woc.js";
 
 export interface ExtractedFile {
-  data: Uint8Array;
-  mediaType?: string;
-  filename?: string;
-  protocol: "b" | "bcat" | "ord";
+	data: Uint8Array;
+	mediaType?: string;
+	filename?: string;
+	protocol: "b" | "bcat" | "ord";
 }
 
 export interface ExtractOptions {
-  /** Output index for outpoint format (default: 0) */
-  vout?: number;
-  /** Progress callback for chunked files */
-  onProgress?: (current: number, total: number) => void;
+	/** Output index for outpoint format (default: 0) */
+	vout?: number;
+	/** Progress callback for chunked files */
+	onProgress?: (current: number, total: number) => void;
+	/** Concurrency limit for parallel chunk fetching (default: 5) */
+	concurrency?: number;
 }
 
 /**
  * Parse outpoint string into txid and vout
  */
-export function parseOutpoint(outpoint: string): { txid: string; vout: number } {
-  // Handle formats: txid_vout, txid (defaults to vout 0)
-  if (outpoint.includes("_")) {
-    const [txid, voutStr] = outpoint.split("_");
-    return { txid, vout: Number.parseInt(voutStr, 10) };
-  }
-  return { txid: outpoint, vout: 0 };
+export function parseOutpoint(outpoint: string): {
+	txid: string;
+	vout: number;
+} {
+	// Handle formats: txid_vout, txid (defaults to vout 0)
+	if (outpoint.includes("_")) {
+		const [txid, voutStr] = outpoint.split("_");
+		return { txid, vout: Number.parseInt(voutStr, 10) };
+	}
+	return { txid: outpoint, vout: 0 };
 }
 
 /**
  * Detect protocol from transaction output script
  */
 export function detectProtocol(
-  script: Script | LockingScript
+	script: Script | LockingScript,
 ): "b" | "bcat" | "bcat-chunk" | "ord" | null {
-  // Check in order of specificity
-  if (isOrdinals(script)) return "ord";
-  if (isBCATMetadata(script)) return "bcat";
-  if (isBCATChunk(script)) return "bcat-chunk";
-  if (isB(script)) return "b";
+	// Check in order of specificity
+	if (isOrdinals(script)) return "ord";
+	if (isBCATMetadata(script)) return "bcat";
+	if (isBCATChunk(script)) return "bcat-chunk";
+	if (isB(script)) return "b";
 
-  return null;
+	return null;
 }
 
 /**
  * Extract file from a single transaction output
  */
-function extractFromScript(script: Script | LockingScript): ExtractedFile | null {
-  // Try Ordinals first (most common for new inscriptions)
-  const ordFile = parseOrdinals(script);
-  if (ordFile) {
-    return {
-      data: ordFile.data,
-      mediaType: ordFile.mediaType,
-      protocol: "ord",
-    };
-  }
+function extractFromScript(
+	script: Script | LockingScript,
+): ExtractedFile | null {
+	// Try Ordinals first (most common for new inscriptions)
+	const ordFile = parseOrdinals(script);
+	if (ordFile) {
+		return {
+			data: ordFile.data,
+			mediaType: ordFile.mediaType,
+			protocol: "ord",
+		};
+	}
 
-  // Try B://
-  const bFile = parseB(script);
-  if (bFile) {
-    return {
-      data: bFile.data,
-      mediaType: bFile.mediaType,
-      filename: bFile.filename,
-      protocol: "b",
-    };
-  }
+	// Try B://
+	const bFile = parseB(script);
+	if (bFile) {
+		return {
+			data: bFile.data,
+			mediaType: bFile.mediaType,
+			filename: bFile.filename,
+			protocol: "b",
+		};
+	}
 
-  // Try BCAT chunk (single chunk, not metadata)
-  const chunk = parseBCATChunk(script);
-  if (chunk) {
-    return {
-      data: chunk.data,
-      protocol: "bcat",
-    };
-  }
+	// Try BCAT chunk (single chunk, not metadata)
+	const chunk = parseBCATChunk(script);
+	if (chunk) {
+		return {
+			data: chunk.data,
+			protocol: "bcat",
+		};
+	}
 
-  return null;
+	return null;
+}
+
+/**
+ * Simple concurrent map with limited parallelism
+ */
+async function pMap<T, R>(
+	items: T[],
+	mapper: (item: T, index: number) => Promise<R>,
+	concurrency: number,
+): Promise<R[]> {
+	const results: R[] = new Array(items.length);
+	let currentIndex = 0;
+
+	async function worker(): Promise<void> {
+		while (currentIndex < items.length) {
+			const index = currentIndex++;
+			results[index] = await mapper(items[index], index);
+		}
+	}
+
+	// Start workers up to concurrency limit
+	const workers = Array.from(
+		{ length: Math.min(concurrency, items.length) },
+		() => worker(),
+	);
+	await Promise.all(workers);
+
+	return results;
 }
 
 /**
  * Extract file from BCAT metadata tx (reassembles chunks)
+ * Uses parallel fetching for better performance
  */
 async function extractBCAT(
-  metadata: ReturnType<typeof parseBCATMetadata>,
-  options?: ExtractOptions
+	metadata: ReturnType<typeof parseBCATMetadata>,
+	options?: ExtractOptions,
 ): Promise<ExtractedFile> {
-  if (!metadata) throw new Error("Invalid BCAT metadata");
+	if (!metadata) throw new ProtocolError("Invalid BCAT metadata", "bcat");
 
-  const chunks: Uint8Array[] = [];
-  const total = metadata.chunkTxids.length;
+	const total = metadata.chunkTxids.length;
+	const concurrency = options?.concurrency ?? 5;
+	let completed = 0;
 
-  console.log(`Fetching ${total} BCAT chunks...`);
+	// Fetch chunks in parallel with progress reporting
+	const chunks = await pMap(
+		metadata.chunkTxids,
+		async (txid, index) => {
+			const tx = await fetchTx(txid);
 
-  for (let i = 0; i < total; i++) {
-    const txid = metadata.chunkTxids[i];
-    options?.onProgress?.(i + 1, total);
+			// Find the BCAT chunk in outputs
+			for (const output of tx.outputs) {
+				const chunkData = parseBCATChunk(output.lockingScript);
+				if (chunkData) {
+					completed++;
+					options?.onProgress?.(completed, total);
+					return chunkData.data;
+				}
+			}
 
-    console.log(`  [${i + 1}/${total}] ${txid}`);
+			throw new ChunkNotFoundError(txid, index);
+		},
+		concurrency,
+	);
 
-    const tx = await fetchTx(txid);
+	// Concatenate all chunks
+	const totalSize = chunks.reduce((sum, c) => sum + c.length, 0);
+	const result = new Uint8Array(totalSize);
+	let offset = 0;
+	for (const chunk of chunks) {
+		result.set(chunk, offset);
+		offset += chunk.length;
+	}
 
-    // Find the BCAT chunk in outputs
-    let found = false;
-    for (const output of tx.outputs) {
-      const chunkData = parseBCATChunk(output.lockingScript);
-      if (chunkData) {
-        chunks.push(chunkData.data);
-        found = true;
-        break;
-      }
-    }
-
-    if (!found) {
-      throw new Error(`BCAT chunk not found in tx ${txid}`);
-    }
-  }
-
-  // Concatenate all chunks
-  const totalSize = chunks.reduce((sum, c) => sum + c.length, 0);
-  const result = new Uint8Array(totalSize);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.length;
-  }
-
-  console.log(`Reassembled ${totalSize} bytes from ${total} chunks`);
-
-  return {
-    data: result,
-    mediaType: metadata.mediaType,
-    filename: metadata.filename,
-    protocol: "bcat",
-  };
+	return {
+		data: result,
+		mediaType: metadata.mediaType,
+		filename: metadata.filename,
+		protocol: "bcat",
+	};
 }
 
 /**
  * Extract file from outpoint
  */
 export async function extract(
-  outpoint: string,
-  options?: ExtractOptions
+	outpoint: string,
+	options?: ExtractOptions,
 ): Promise<ExtractedFile> {
-  const { txid, vout } = parseOutpoint(outpoint);
+	const { txid, vout } = parseOutpoint(outpoint);
+	const tx = await fetchTx(txid);
 
-  console.log(`Fetching tx: ${txid}`);
-  const tx = await fetchTx(txid);
+	const output = tx.outputs[vout];
+	if (!output) {
+		throw new OutputNotFoundError(txid, vout);
+	}
 
-  const output = tx.outputs[vout];
-  if (!output) {
-    throw new Error(`Output ${vout} not found in tx ${txid}`);
-  }
+	const script = output.lockingScript;
+	const protocol = detectProtocol(script);
 
-  const script = output.lockingScript;
-  const protocol = detectProtocol(script);
+	// Handle BCAT metadata specially - need to fetch chunks
+	if (protocol === "bcat") {
+		const metadata = parseBCATMetadata(script);
+		return extractBCAT(metadata, options);
+	}
 
-  // Handle BCAT metadata specially - need to fetch chunks
-  if (protocol === "bcat") {
-    const metadata = parseBCATMetadata(script);
-    return extractBCAT(metadata, options);
-  }
+	// Handle single-tx protocols
+	const file = extractFromScript(script);
+	if (!file) {
+		throw new ProtocolError(
+			`Could not extract file from ${outpoint} - unknown protocol`,
+		);
+	}
 
-  // Handle single-tx protocols
-  const file = extractFromScript(script);
-  if (!file) {
-    throw new Error(`Could not extract file from ${outpoint} - unknown protocol`);
-  }
-
-  return file;
+	return file;
 }
 
 /**
  * Extract and return just the raw data (convenience function)
  */
 export async function extractData(
-  outpoint: string,
-  options?: ExtractOptions
+	outpoint: string,
+	options?: ExtractOptions,
 ): Promise<Uint8Array> {
-  const file = await extract(outpoint, options);
-  return file.data;
+	const file = await extract(outpoint, options);
+	return file.data;
 }

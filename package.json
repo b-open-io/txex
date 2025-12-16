@@ -1,49 +1,54 @@
 {
-  "name": "txex",
-  "version": "0.0.1",
-  "description": "Extract files from BSV transactions (B://, BCAT, Ordinals)",
-  "type": "module",
-  "main": "src/index.ts",
-  "module": "src/index.ts",
-  "bin": {
-    "txex": "./src/cli.ts"
-  },
-  "files": [
-    "src"
-  ],
-  "scripts": {
-    "cli": "bun run src/cli.ts",
-    "lint": "biome check",
-    "lint:fix": "biome check --write",
-    "test": "bun test"
-  },
-  "keywords": [
-    "bsv",
-    "bitcoin",
-    "ordinals",
-    "bcat",
-    "blockchain",
-    "extract"
-  ],
-  "author": "b-open-io",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/b-open-io/txex.git"
-  },
-  "homepage": "https://github.com/b-open-io/txex#readme",
-  "bugs": {
-    "url": "https://github.com/b-open-io/txex/issues"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "^2.3.9",
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  },
-  "dependencies": {
-    "@bsv/sdk": "^1.9.24",
-    "commander": "^14.0.2"
-  }
+	"name": "txex",
+	"version": "0.0.2",
+	"description": "Extract files from BSV transactions (B://, BCAT, Ordinals)",
+	"type": "module",
+	"main": "src/index.ts",
+	"module": "src/index.ts",
+	"bin": {
+		"txex": "./src/cli.ts"
+	},
+	"files": [
+		"src"
+	],
+	"scripts": {
+		"cli": "bun run src/cli.ts",
+		"lint": "biome check",
+		"lint:fix": "biome check --write",
+		"test": "bun test"
+	},
+	"keywords": [
+		"bsv",
+		"bitcoin",
+		"ordinals",
+		"bcat",
+		"blockchain",
+		"extract"
+	],
+	"author": "b-open-io",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/b-open-io/txex.git"
+	},
+	"homepage": "https://github.com/b-open-io/txex#readme",
+	"bugs": {
+		"url": "https://github.com/b-open-io/txex/issues"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.3.9",
+		"@types/bun": "latest",
+		"@types/mime-types": "^3.0.1"
+	},
+	"peerDependencies": {
+		"typescript": "^5.9.3"
+	},
+	"dependencies": {
+		"@bsv/sdk": "^1.9.24",
+		"chalk": "^5.6.2",
+		"commander": "^14.0.2",
+		"mime-types": "^3.0.2",
+		"ora": "^9.0.0",
+		"sharp": "^0.34.5"
+	}
 }
