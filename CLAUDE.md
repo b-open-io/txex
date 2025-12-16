@@ -1,8 +1,74 @@
 ---
-description: Use Bun instead of Node.js, npm, pnpm, or vite.
-globs: "*.ts, *.tsx, *.html, *.css, *.js, *.jsx, package.json"
-alwaysApply: false
+description: txex - Transaction File Extractor CLI
+globs: "*.ts, *.tsx, package.json"
+alwaysApply: true
 ---
+
+# txex
+
+Transaction File Extractor - Extract and transform files from BSV transactions.
+
+## Commands
+
+```bash
+bun dev           # Run CLI in development
+bun run build     # Typecheck
+bun run lint      # Biome check
+bun run lint:fix  # Auto-fix linting
+bun test          # Run tests
+```
+
+## Updating the Demo GIF
+
+The demo GIF in the README is generated using [VHS](https://github.com/charmbracelet/vhs) by Charmbracelet.
+
+### Prerequisites
+
+```bash
+# Install VHS (macOS)
+brew install vhs
+
+# VHS requires ffmpeg
+brew install ffmpeg
+```
+
+### Recording
+
+1. Edit `demo.tape` to update the demo script
+2. Run VHS to record:
+   ```bash
+   cd /Users/satchmo/code/txex
+   vhs demo.tape
+   ```
+3. This generates `demo.gif` in the project root
+4. Commit the updated GIF
+
+### Demo Tape Syntax
+
+```tape
+Output demo.gif           # Output filename
+Set FontSize 14           # Terminal font size
+Set Width 1000            # Terminal width in pixels
+Set Height 600            # Terminal height in pixels
+Set Theme "Catppuccin Mocha"  # Terminal theme
+Set TypingSpeed 40ms      # Typing animation speed
+
+Type "command"            # Type text
+Enter                     # Press enter
+Sleep 2s                  # Wait for command to complete
+```
+
+## Architecture
+
+- `src/cli.ts` - Commander CLI entry point
+- `src/extract.ts` - Main extraction logic
+- `src/protocols/` - Protocol parsers (B://, BCAT, Ordinals)
+- `src/providers/` - Data providers (WhatsOnChain)
+- `src/transform.ts` - Sharp-based image transforms
+- `src/cache.ts` - Two-tier caching (tx + transforms)
+- `src/config.ts` - Config file support (.txexrc)
+
+## Bun
 
 Default to using Bun instead of Node.js.
 

@@ -4,37 +4,48 @@
 Output demo.gif
 
 Set FontSize 14
-Set Width 900
-Set Height 500
+Set Width 1000
+Set Height 600
 Set Theme "Catppuccin Mocha"
-Set TypingSpeed 50ms
+Set TypingSpeed 40ms
 Set Padding 20
 
-# Show help first
-Type "txex --help"
-Enter
-Sleep 3s
-
-# Clear and show version
-Type "clear"
-Enter
-Sleep 500ms
-
+# Show version
 Type "txex --version"
 Enter
-Sleep 1500ms
+Sleep 1s
 
-# Extract a BCAT chunked file (SHUAA - 9 chunks)
-Type "txex fb3c1b442b352f6dcf503dcfa8ad274897184487f41928832858122c1e669da1_0 -o shuaa.mp4"
+# Extract a 1Sat Ordinal image
+Type "txex 6fecd063d7155b3080fa8df5e2990290c61c7af05e95ed0a3b8b75a35f5d1a80_0"
 Enter
-Sleep 15s
+Sleep 8s
 
-# Show the output file
-Type "ls -lh shuaa.mp4"
+# Show the extracted file
+Type "ls -lh *.png"
 Enter
 Sleep 2s
 
-# Clean up
-Type "rm shuaa.mp4"
+# Now transform: resize to 400px width, convert to WebP
+Type "txex 6fecd063d7155b3080fa8df5e2990290c61c7af05e95ed0a3b8b75a35f5d1a80_0 -w 400 -f webp"
 Enter
-Sleep 1s
+Sleep 6s
+
+# Show both files
+Type "ls -lh 6fecd063*"
+Enter
+Sleep 2s
+
+# Run same transform again - instant from cache
+Type "txex 6fecd063d7155b3080fa8df5e2990290c61c7af05e95ed0a3b8b75a35f5d1a80_0 -w 400 -f webp"
+Enter
+Sleep 2s
+
+# Show cache stats
+Type "txex cache --stats"
+Enter
+Sleep 3s
+
+# Clean up
+Type "rm 6fecd063*.png 6fecd063*.webp 2>/dev/null"
+Enter
+Sleep 500ms
