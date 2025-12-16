@@ -1,0 +1,28 @@
+{
+  "name": "txex",
+  "version": "0.1.0",
+  "description": "Extract files from BSV transactions (B://, BCAT, Ordinals)",
+  "module": "src/index.ts",
+  "type": "module",
+  "bin": {
+    "txex": "./src/cli.ts"
+  },
+  "scripts": {
+    "cli": "bun run src/cli.ts",
+    "lint": "biome check",
+    "lint:fix": "biome check --write",
+    "test": "bun test"
+  },
+  "private": true,
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.9",
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@bsv/sdk": "^1.9.24",
+    "commander": "^14.0.2"
+  }
+}
