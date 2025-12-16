@@ -1,6 +1,6 @@
 /**
  * Main extraction logic
- * Supports: B://, BCAT, 1Sat Ordinals
+ * Supports: B://, BCAT, 1Sat Ordinals, ORDFS Streams
  */
 
 import type { LockingScript, Script } from "@bsv/sdk";
@@ -17,13 +17,16 @@ import {
 	parseBCATMetadata,
 } from "./protocols/bcat.js";
 import { isOrdinals, parseOrdinals } from "./protocols/ordinals.js";
+import { extractStream, isStreamContinuation } from "./protocols/stream.js";
 import { fetchTx } from "./providers/woc.js";
 
 export interface ExtractedFile {
 	data: Uint8Array;
 	mediaType?: string;
 	filename?: string;
-	protocol: "b" | "bcat" | "ord";
+	protocol: "b" | "bcat" | "ord" | "stream";
+	/** Number of chunks (for BCAT and stream protocols) */
+	chunks?: number;
 }
 
 export interface ExtractOptions {
@@ -33,6 +36,8 @@ export interface ExtractOptions {
 	onProgress?: (current: number, total: number) => void;
 	/** Concurrency limit for parallel chunk fetching (default: 5) */
 	concurrency?: number;
+	/** Enable ordfs/stream protocol - follow ordinal chain (default: true) */
+	stream?: boolean;
 }
 
 /**
@@ -214,6 +219,47 @@ export async function extract(
 		throw new ProtocolError(
 			`Could not extract file from ${outpoint} - unknown protocol`,
 		);
+	}
+
+	// Check for ordfs/stream - follow ordinal chain if enabled
+	const streamEnabled = options?.stream !== false;
+	if (
+		streamEnabled &&
+		file.protocol === "ord" &&
+		isStreamContinuation(file.mediaType)
+	) {
+		// This is a stream continuation - need to find origin and extract full stream
+		// For now, start from this outpoint and go forward
+		const streamResult = await extractStream(
+			{ txid, vout },
+			{ onProgress: (seq) => options?.onProgress?.(seq, -1) },
+		);
+
+		return {
+			data: streamResult.data,
+			mediaType: streamResult.mediaType,
+			protocol: "stream",
+			chunks: streamResult.chunks,
+		};
+	}
+
+	// Check if this ordinal starts a stream (has ordfs/stream continuations)
+	if (streamEnabled && file.protocol === "ord") {
+		// Try to extract as stream - will return single chunk if no continuations
+		const streamResult = await extractStream(
+			{ txid, vout },
+			{ onProgress: (seq) => options?.onProgress?.(seq, -1) },
+		);
+
+		// If more than one chunk, it's a stream
+		if (streamResult.chunks > 1) {
+			return {
+				data: streamResult.data,
+				mediaType: streamResult.mediaType,
+				protocol: "stream",
+				chunks: streamResult.chunks,
+			};
+		}
 	}
 
 	return file;

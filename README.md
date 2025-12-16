@@ -6,7 +6,8 @@ Transaction File Extractor - Extract and transform files from BSV transactions.
 
 ## Features
 
-- **Multi-protocol support**: B://, BCAT (chunked), 1Sat Ordinals
+- **Multi-protocol support**: B://, BCAT (chunked), 1Sat Ordinals, ORDFS Streams
+- **Ordinal chain tracking**: Follow ordinals across spends for streaming content
 - **Parallel fetching**: Concurrent chunk downloads with configurable concurrency
 - **Image transforms**: Cloudinary-style resize, crop, format conversion
 - **Smart caching**: Two-tier cache for raw transactions and transformed outputs
@@ -103,9 +104,10 @@ import { extract, extractData, transformImage } from "txex";
 
 // Get full file info
 const file = await extract("abc123...def456_0");
-console.log(file.protocol);   // "bcat" | "b" | "ord"
+console.log(file.protocol);   // "bcat" | "b" | "ord" | "stream"
 console.log(file.mediaType);  // "video/mp4"
 console.log(file.data);       // Uint8Array
+console.log(file.chunks);     // Number of chunks (for BCAT/stream)
 
 // Get raw data only
 const data = await extractData("abc123...def456_0");
@@ -118,6 +120,27 @@ const transformed = await transformImage(data, {
 });
 ```
 
+### Ordinal Chain Tracking
+
+```typescript
+import {
+  getNextOrdinalOutpoint,
+  findOrigin,
+  streamContent
+} from "txex";
+
+// Find the origin of an ordinal
+const origin = await findOrigin({ txid: "abc123...", vout: 0 });
+
+// Get next outpoint in chain (follows spends)
+const next = await getNextOrdinalOutpoint({ txid: "abc123...", vout: 0 });
+
+// Stream content chunks (async generator)
+for await (const chunk of streamContent({ txid: "abc123...", vout: 0 })) {
+  console.log(chunk.mediaType, chunk.data.length);
+}
+```
+
 ## Supported Protocols
 
 | Protocol | Prefix | Description |
@@ -125,6 +148,7 @@ const transformed = await transformImage(data, {
 | **B://** | `19HxigV4QyBv3tHpQVcUEQyq1pzZVdoAut` | Single transaction files |
 | **BCAT** | `15DHFxWZJT58f9nhyGnsRBqrgwK4W6h4Up` | Chunked files (large media) |
 | **Ordinals** | `OP_FALSE OP_IF "ord"...` | 1Sat inscriptions |
+| **ORDFS Stream** | `ordfs/stream` content type | Streaming content across ordinal transfers |
 
 ## Caching
 

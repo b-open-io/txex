@@ -53,6 +53,8 @@ const protocolColor = (protocol: string) => {
 			return chalk.blue(protocol.toUpperCase());
 		case "ord":
 			return chalk.yellow(protocol.toUpperCase());
+		case "stream":
+			return chalk.cyan("STREAM");
 		default:
 			return chalk.white(protocol);
 	}
@@ -273,9 +275,11 @@ program
 						chalk.dim("Size: ") + chalk.green(formatBytes(outputData.length)),
 					];
 
-					if (totalChunks > 1) {
+					// Show chunks for BCAT or stream protocols
+					const chunkCount = file.chunks ?? totalChunks;
+					if (chunkCount > 1) {
 						details.push(
-							chalk.dim("Chunks: ") + chalk.cyan(totalChunks.toString()),
+							chalk.dim("Chunks: ") + chalk.cyan(chunkCount.toString()),
 						);
 					}
 

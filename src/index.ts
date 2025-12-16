@@ -39,7 +39,14 @@ export {
 	extractData,
 	parseOutpoint,
 } from "./extract.js";
-
+// Ordinal tracking
+export type { Outpoint } from "./ordinal.js";
+export {
+	calculateOrdinalOutput,
+	calculatePreviousOrdinalInput,
+	findOrigin,
+	getNextOrdinalOutpoint,
+} from "./ordinal.js";
 // Protocol parsers
 export type { BFile } from "./protocols/b.js";
 export { B_PREFIX, isB, parseB } from "./protocols/b.js";
@@ -54,7 +61,19 @@ export {
 } from "./protocols/bcat.js";
 export type { OrdFile } from "./protocols/ordinals.js";
 export { isOrdinals, parseOrdinals } from "./protocols/ordinals.js";
-
+export type { StreamChunk } from "./protocols/stream.js";
+export {
+	extractStream,
+	isStreamContinuation,
+	parseOutputContent,
+	streamContent,
+} from "./protocols/stream.js";
+export {
+	fetchOutput,
+	fetchRawTxBin,
+	fetchSpend,
+	fetchTxJB,
+} from "./providers/junglebus.js";
 // Providers
 export { fetchRawTx, fetchTx, fetchTxBatch } from "./providers/woc.js";
 
