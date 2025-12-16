@@ -1,19 +1,40 @@
 {
   "name": "txex",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Extract files from BSV transactions (B://, BCAT, Ordinals)",
-  "module": "src/index.ts",
   "type": "module",
+  "main": "src/index.ts",
+  "module": "src/index.ts",
   "bin": {
     "txex": "./src/cli.ts"
   },
+  "files": [
+    "src"
+  ],
   "scripts": {
     "cli": "bun run src/cli.ts",
     "lint": "biome check",
     "lint:fix": "biome check --write",
     "test": "bun test"
   },
-  "private": true,
+  "keywords": [
+    "bsv",
+    "bitcoin",
+    "ordinals",
+    "bcat",
+    "blockchain",
+    "extract"
+  ],
+  "author": "b-open-io",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/b-open-io/txex.git"
+  },
+  "homepage": "https://github.com/b-open-io/txex#readme",
+  "bugs": {
+    "url": "https://github.com/b-open-io/txex/issues"
+  },
   "devDependencies": {
     "@biomejs/biome": "^2.3.9",
     "@types/bun": "latest"
