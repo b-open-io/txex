@@ -1,17 +1,20 @@
 /**
- * WhatsOnChain Provider
- * Fetches raw transactions from WhatsOnChain API
+ * Transaction Provider
+ * Fetches raw transactions from JungleBus API (primary)
+ * Falls back to WhatsOnChain if needed
  * Uses unified cache module
  */
 
-import { Transaction } from "@bsv/sdk";
+import { Transaction, Utils } from "@bsv/sdk";
 import { type CacheOptions, readTxCache, writeTxCache } from "../cache.js";
 import { NetworkError } from "../errors.js";
 
+const JUNGLEBUS_BASE = "https://junglebus.gorillapool.io";
 const WOC_BASE = "https://api.whatsonchain.com/v1/bsv/main";
 
 /**
- * Fetch raw transaction hex from WhatsOnChain (with caching)
+ * Fetch raw transaction hex (with caching)
+ * Uses JungleBus as primary, WoC as fallback
  */
 export async function fetchRawTx(
 	txid: string,
@@ -23,21 +26,44 @@ export async function fetchRawTx(
 		return cached;
 	}
 
-	// Fetch from WoC
-	const url = `${WOC_BASE}/tx/${txid}/hex`;
-	const resp = await fetch(url);
+	// Try JungleBus first (binary format)
+	try {
+		const jbUrl = `${JUNGLEBUS_BASE}/v1/transaction/get/${txid}/bin`;
+		const jbResp = await fetch(jbUrl);
 
-	if (!resp.ok) {
+		if (jbResp.ok) {
+			const buffer = await jbResp.arrayBuffer();
+			const bytes = new Uint8Array(buffer);
+
+			// Check if it's an error response
+			if (bytes.length < 100) {
+				const text = new TextDecoder().decode(bytes);
+				if (text.includes("not-found")) {
+					throw new Error("Not found on JungleBus");
+				}
+			}
+
+			const hex = Utils.toHex(bytes);
+			await writeTxCache(txid, hex, cacheOptions);
+			return hex;
+		}
+	} catch {
+		// Fall through to WoC
+	}
+
+	// Fallback to WhatsOnChain
+	const wocUrl = `${WOC_BASE}/tx/${txid}/hex`;
+	const wocResp = await fetch(wocUrl);
+
+	if (!wocResp.ok) {
 		throw new NetworkError(
-			`WoC fetch failed: ${resp.status} ${resp.statusText}`,
+			`Transaction not found: ${txid}`,
 			txid,
-			resp.status,
+			wocResp.status,
 		);
 	}
 
-	const hex = await resp.text();
-
-	// Cache for next time
+	const hex = await wocResp.text();
 	await writeTxCache(txid, hex, cacheOptions);
 
 	return hex;
