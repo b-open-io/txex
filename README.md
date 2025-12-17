@@ -1,27 +1,45 @@
+<div align="center">
+
 # txex
 
-Transaction File Extractor - Extract and transform files from BSV transactions.
+**Extract, cache, and transform media from the blockchain.**
+
+[![npm version](https://img.shields.io/npm/v/txex.svg?style=flat-square)](https://www.npmjs.org/package/txex)
+[![License](https://img.shields.io/npm/l/txex.svg?style=flat-square)](https://github.com/b-open-io/txex/blob/master/LICENSE)
 
 ![Demo](demo.gif)
 
-## Features
+</div>
 
-- **Multi-protocol support**: B://, BCAT (chunked), 1Sat Ordinals, ORDFS Streams
-- **Ordinal chain tracking**: Follow ordinals across spends for streaming content
-- **Parallel fetching**: Concurrent chunk downloads with configurable concurrency
-- **Image transforms**: Resize, crop, format conversion via sharp
-- **Smart caching**: Two-tier cache for raw transactions and transformed outputs
-- **Config file**: Set defaults via `.txexrc` or `txex.config.json`
+---
 
 ## Installation
 
 ```bash
-# Global install with bun
-bun add -g txex
-
-# Or with npm
 npm install -g txex
 ```
+
+## Table of Contents
+
+- [Features](#features)
+- [CLI Usage](#cli-usage)
+  - [Basic Extraction](#basic-extraction)
+  - [Collections](#collections)
+  - [Image Transforms](#image-transforms)
+  - [Cache Management](#cache-management)
+- [Library Usage](#library-usage)
+- [Configuration](#configuration)
+- [Supported Protocols](#supported-protocols)
+- [Data Providers](#data-providers)
+
+## Features
+
+- **Universal Extraction** - Seamlessly handles B://, BCAT, 1Sat Ordinals, and ORDFS Streams
+- **Built-in Image Processing** - Resize, crop, blur, and convert formats on the fly via `sharp`
+- **Collection Downloads** - Auto-detect and download entire NFT collections in parallel
+- **Origin Tracking** - Automatically traces marketplace listings back to their inscription
+- **Smart Caching** - Two-tier cache for raw transactions and transformed outputs
+- **TypeScript Ready** - Use as CLI or import as a fully-typed library
 
 ## CLI Usage
 
@@ -29,13 +47,13 @@ npm install -g txex
 
 ```bash
 # Extract from outpoint (txid_vout)
-txex <outpoint> [-o output.mp4]
+txex <outpoint> -o output.mp4
 
-# Examples
-txex abc123...def456_0                    # Auto-detect filename/extension
-txex abc123...def456_0 -o my_file.mp4     # Custom output path
-txex abc123...def456 -q                   # Quiet mode
-txex abc123...def456 -c 10                # 10 parallel chunk fetches
+# Auto-detect filename and extension
+txex abc123...def456_0
+
+# Parallel chunk fetches for large files
+txex abc123...def456_0 -c 10
 ```
 
 ### Collections
@@ -58,23 +76,17 @@ txex <collection_outpoint> -o ./my-collection
 ![Transforms Demo](demo-transforms.gif)
 
 ```bash
-# Resize to width
-txex <outpoint> -w 800 -o thumb.webp
+# Resize to width, convert to WebP
+txex <outpoint> -w 800 -f webp -o thumb.webp
 
-# Resize with format conversion
-txex <outpoint> -w 400 -h 400 -f webp --fit cover
+# Generate blurred placeholder
+txex <outpoint> -w 50 --blur 10 -f webp -q 50
 
-# Grayscale thumbnail
-txex <outpoint> -w 200 --grayscale -f png
-
-# Blur for placeholder
-txex <outpoint> -w 100 --blur 10 -f webp -q 60
-
-# Full transform example
-txex <outpoint> -w 1200 -h 630 --fit cover -f webp -q 85 -o og-image.webp
+# Social media card (Cover fit, specific dimensions)
+txex <outpoint> -w 1200 -h 630 --fit cover -f webp -o og.webp
 ```
 
-### Transform Options
+#### Transform Options
 
 | Option | Short | Description |
 |--------|-------|-------------|
@@ -82,7 +94,7 @@ txex <outpoint> -w 1200 -h 630 --fit cover -f webp -q 85 -o og-image.webp
 | `--height <px>` | `-h` | Resize height |
 | `--format <fmt>` | `-f` | Output format: `webp`, `avif`, `png`, `jpg` |
 | `--fit <mode>` | | Resize fit: `cover`, `contain`, `fill`, `inside` |
-| `--quality <n>` | | Output quality 1-100 (default: 80) |
+| `--quality <n>` | `-q` | Output quality 1-100 (default: 80) |
 | `--blur <radius>` | | Blur radius 0.3-1000 |
 | `--grayscale` | | Convert to grayscale |
 | `--rotate <deg>` | | Rotate degrees |
@@ -92,28 +104,17 @@ txex <outpoint> -w 1200 -h 630 --fit cover -f webp -q 85 -o og-image.webp
 ### Cache Management
 
 ```bash
-# Show cache stats
-txex cache --stats
-
-# Clear all cached data
-txex cache --clear
-```
-
-## Config File
-
-Create `.txexrc` or `txex.config.json` in your project or home directory:
-
-```json
-{
-  "concurrency": 10,
-  "transform": {
-    "format": "webp",
-    "quality": 85
-  }
-}
+txex cache --stats   # Show cache statistics
+txex cache --clear   # Clear all cached data
 ```
 
 ## Library Usage
+
+`txex` is fully typed. Install it locally:
+
+```bash
+npm install txex
+```
 
 ```typescript
 import { extract, extractData, transformImage } from "txex";
@@ -139,13 +140,9 @@ const transformed = await transformImage(data, {
 ### Ordinal Chain Tracking
 
 ```typescript
-import {
-  getNextOrdinalOutpoint,
-  findOrigin,
-  streamContent
-} from "txex";
+import { findOrigin, getNextOrdinalOutpoint, streamContent } from "txex";
 
-// Find the origin of an ordinal
+// Find the origin inscription of a listing/transfer
 const origin = await findOrigin({ txid: "abc123...", vout: 0 });
 
 // Get next outpoint in chain (follows spends)
@@ -157,6 +154,33 @@ for await (const chunk of streamContent({ txid: "abc123...", vout: 0 })) {
 }
 ```
 
+## Configuration
+
+Create `.txexrc` or `txex.config.json` in your project or home directory:
+
+```json
+{
+  "concurrency": 10,
+  "transform": {
+    "format": "webp",
+    "quality": 85
+  }
+}
+```
+
+### Caching
+
+txex uses a two-tier caching system:
+
+1. **Transaction cache**: Raw tx data stored in `~/.txex/cache/tx/`
+2. **Transform cache**: Processed images stored in `~/.txex/cache/transformed/`
+
+```bash
+txex abc123_0 -w 800 -f webp    # First run: ~2.5s (network fetch)
+txex abc123_0 -w 800 -f webp    # Cached: ~0.05s
+txex abc123_0 -w 400 -f png     # Different transform: ~0.3s (tx cached)
+```
+
 ## Supported Protocols
 
 | Protocol | Prefix | Description |
@@ -164,33 +188,13 @@ for await (const chunk of streamContent({ txid: "abc123...", vout: 0 })) {
 | **B://** | `19HxigV4QyBv3tHpQVcUEQyq1pzZVdoAut` | Single transaction files |
 | **BCAT** | `15DHFxWZJT58f9nhyGnsRBqrgwK4W6h4Up` | Chunked files (large media) |
 | **Ordinals** | `OP_FALSE OP_IF "ord"...` | 1Sat inscriptions |
-| **ORDFS Stream** | `ordfs/stream` content type | Streaming content across ordinal transfers |
+| **ORDFS Stream** | `ordfs/stream` content type | Streaming across ordinal transfers |
 
-## Caching
+## Data Providers
 
-txex uses a two-tier caching system:
+txex uses [JungleBus](https://junglebus.gorillapool.io) as the primary transaction provider with [WhatsOnChain](https://whatsonchain.com) as fallback. No API key required.
 
-1. **Transaction cache**: Raw tx hex stored in `~/.txex/cache/tx/`
-2. **Transform cache**: Processed images stored in `~/.txex/cache/transformed/`
-
-Transform cache keys include a hash of transform options, so different transforms are cached separately.
-
-```bash
-# First run - fetches from network
-txex abc123_0 -w 800 -f webp    # ~2.5s
-
-# Second run - instant from cache
-txex abc123_0 -w 800 -f webp    # ~0.05s
-
-# Different transform - separate cache entry
-txex abc123_0 -w 400 -f png     # ~0.3s (tx cached, transform new)
-```
-
-## Performance
-
-- **Parallel fetching**: BCAT chunks fetched concurrently (default: 5)
-- **Smart caching**: Transactions cached to disk, transforms cached separately
-- **Efficient transforms**: Uses sharp for native-speed image processing
+Collection metadata is fetched from [GorillaPool's Ordinals API](https://ordinals.gorillapool.io).
 
 ## License
 
