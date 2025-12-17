@@ -1,6 +1,6 @@
 {
 	"name": "txex",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"description": "Extract files from BSV transactions (B://, BCAT, Ordinals)",
 	"type": "module",
 	"main": "src/index.ts",

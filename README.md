@@ -39,6 +39,19 @@ txex abc123...def456 -q                   # Quiet mode
 txex abc123...def456 -c 10                # 10 parallel chunk fetches
 ```
 
+### Collections
+
+```bash
+# Download entire collection (auto-detected)
+txex <collection_outpoint>
+
+# Limit number of items
+txex <collection_outpoint> --limit 50
+
+# Custom output directory
+txex <collection_outpoint> -o ./my-collection
+```
+
 ### Image Transforms
 
 ```bash
