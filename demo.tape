@@ -15,18 +15,18 @@ Type "txex --version"
 Enter
 Sleep 1s
 
-# Extract B:// image and transform to webp thumbnail
-Type "txex cbacb16c3a03729165542f20404827f1ee91bc1f9783089c41c59524ebf75a22_0 -w 200 -f webp -o thumb.webp"
+# Extract 3D model from listing (traces origin automatically)
+Type "txex 2173157555b91fba7fc830cdc3fe3960ccb1acb64a50a25c8499f4f393708642_0 -o model.glb"
 Enter
-Sleep 5s
+Sleep 8s
 
-# Extract BCAT chunked file (video/mp4 - 9 chunks)
-Type "txex fb3c1b442b352f6dcf503dcfa8ad274897184487f41928832858122c1e669da1_0 -o shuaa.mp4"
+# Extract video from listing (9MB, traces origin)
+Type "txex dd4794277fed1b14574ca1aa9423faa18af9abff028713d40fc362ff61b22a39_0 -o video.mp4"
 Enter
-Sleep 15s
+Sleep 12s
 
 # Show the files
-Type "ls -lh thumb.webp shuaa.mp4"
+Type "ls -lh model.glb video.mp4"
 Enter
 Sleep 2s
 
@@ -36,6 +36,6 @@ Enter
 Sleep 2s
 
 # Clean up
-Type "rm -f thumb.webp shuaa.mp4"
+Type "rm -f model.glb video.mp4"
 Enter
 Sleep 500ms

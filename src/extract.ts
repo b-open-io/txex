@@ -9,6 +9,7 @@ import {
 	OutputNotFoundError,
 	ProtocolError,
 } from "./errors.js";
+import { findOrigin } from "./ordinal.js";
 import { isB, parseB } from "./protocols/b.js";
 import {
 	isBCATChunk,
@@ -214,7 +215,22 @@ export async function extract(
 	}
 
 	// Handle single-tx protocols
-	const file = extractFromScript(script);
+	let file = extractFromScript(script);
+
+	// If no recognized protocol but it's a 1-sat output, try finding the origin
+	if (!file && output.satoshis === 1) {
+		const origin = await findOrigin({ txid, vout });
+
+		// If origin is different from current, extract from origin
+		if (origin.txid !== txid || origin.vout !== vout) {
+			const originTx = await fetchTx(origin.txid);
+			const originOutput = originTx.outputs[origin.vout];
+			if (originOutput) {
+				file = extractFromScript(originOutput.lockingScript);
+			}
+		}
+	}
+
 	if (!file) {
 		throw new ProtocolError(
 			`Could not extract file from ${outpoint} - unknown protocol`,
