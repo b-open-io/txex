@@ -7,7 +7,7 @@
 [![npm version](https://img.shields.io/npm/v/txex.svg?style=flat-square)](https://www.npmjs.org/package/txex)
 [![License](https://img.shields.io/npm/l/txex.svg?style=flat-square)](https://github.com/b-open-io/txex/blob/master/LICENSE)
 
-![Demo](demo.gif)
+![Demo](assets/demo.gif)
 
 </div>
 
@@ -63,7 +63,7 @@ txex abc123...def456_0 -c 10
 
 ### Collections
 
-![Collections Demo](demo-collections.gif)
+![Collections Demo](assets/demo-collections.gif)
 
 ```bash
 # Download entire collection (auto-detected)
@@ -78,7 +78,7 @@ txex <collection_outpoint> -o ./my-collection
 
 ### Image Transforms
 
-![Transforms Demo](demo-transforms.gif)
+![Transforms Demo](assets/demo-transforms.gif)
 
 ```bash
 # Resize to width, convert to WebP
