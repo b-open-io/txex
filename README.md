@@ -180,17 +180,20 @@ Output includes: protocol, media type, size, filename, chunk count, origin (if d
 ### Color Extraction
 
 ```bash
-# Extract dominant color and palette
+# Extract dominant color, palette, and BlurHash
 txex color <outpoint>
 
 # Custom palette size
 txex color <outpoint> -n 8
 
+# Skip BlurHash generation
+txex color <outpoint> --no-blurhash
+
 # JSON output
 txex color <outpoint> --json
 ```
 
-Returns dominant color and color palette for images (useful for UI theming, placeholders).
+Returns dominant color, color palette, and [BlurHash](https://blurha.sh) for images (useful for UI theming, placeholders, LQIP).
 
 ### Cache Management
 

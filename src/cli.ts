@@ -36,6 +36,7 @@ import { detectProtocol, extract, parseOutpoint } from "./extract.js";
 import { findOrigin } from "./ordinal.js";
 import { fetchTx } from "./providers/junglebus.js";
 import {
+	generateBlurHash,
 	getColorPalette,
 	getDominantColor,
 	getTransformMimeType,
@@ -717,14 +718,15 @@ program
 // Color subcommand
 program
 	.command("color")
-	.description("Extract dominant color and palette from an image")
+	.description("Extract dominant color, palette, and BlurHash from an image")
 	.argument("<outpoint>", "Transaction outpoint (txid_vout or just txid)")
 	.option("-n, --count <n>", "Number of palette colors", "5")
+	.option("--no-blurhash", "Skip BlurHash generation")
 	.option("--json", "Output as JSON")
 	.action(
 		async (
 			outpoint: string,
-			options: { count?: string; json?: boolean },
+			options: { count?: string; blurhash?: boolean; json?: boolean },
 		) => {
 			const isInteractive = process.stdout.isTTY && !options.json;
 			const spinner = ora({
@@ -748,16 +750,20 @@ program
 					);
 				}
 
-				// Get dominant color and palette
-				const [dominant, palette] = await Promise.all([
+				// Get dominant color, palette, and optionally blurhash
+				const includeBlurhash = options.blurhash !== false;
+				const [dominant, palette, blurhash] = await Promise.all([
 					getDominantColor(file.data),
 					getColorPalette(file.data, Number.parseInt(options.count ?? "5", 10)),
+					includeBlurhash ? generateBlurHash(file.data) : Promise.resolve(undefined),
 				]);
 
 				spinner.stop();
 
 				if (options.json) {
-					console.log(JSON.stringify({ dominant, palette }, null, 2));
+					const result: Record<string, unknown> = { dominant, palette };
+					if (blurhash) result.blurhash = blurhash;
+					console.log(JSON.stringify(result, null, 2));
 					return;
 				}
 
@@ -774,6 +780,9 @@ program
 						chalk.hex(color).bold("██"),
 						chalk.white(color),
 					);
+				}
+				if (blurhash) {
+					console.log(chalk.dim("BlurHash:"), chalk.white(blurhash));
 				}
 				console.log();
 			} catch (err) {

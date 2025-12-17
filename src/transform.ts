@@ -4,6 +4,7 @@
  */
 
 import { createHash } from "node:crypto";
+import { encode } from "blurhash";
 import sharp from "sharp";
 
 export interface TransformOptions {
@@ -187,6 +188,33 @@ export async function getColorPalette(
 		.map(([hex]) => hex);
 
 	return sorted;
+}
+
+/**
+ * Generate BlurHash for an image
+ * Returns a compact string that can be decoded to a blurred placeholder
+ */
+export async function generateBlurHash(
+	data: Uint8Array,
+	componentX = 4,
+	componentY = 3,
+): Promise<string> {
+	// Resize to small dimensions for faster processing
+	const size = 32;
+	const { data: pixels, info } = await sharp(data)
+		.resize(size, size, { fit: "inside" })
+		.ensureAlpha()
+		.raw()
+		.toBuffer({ resolveWithObject: true });
+
+	// BlurHash expects RGBA data
+	return encode(
+		new Uint8ClampedArray(pixels),
+		info.width,
+		info.height,
+		componentX,
+		componentY,
+	);
 }
 
 export function getTransformMimeType(

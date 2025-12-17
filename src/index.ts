@@ -82,6 +82,7 @@ export {
 // Image transforms
 export type { TransformOptions } from "./transform.js";
 export {
+	generateBlurHash,
 	getColorPalette,
 	getDominantColor,
 	getTransformMimeType,
