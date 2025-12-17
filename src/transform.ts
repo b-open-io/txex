@@ -42,8 +42,16 @@ export function isTransformableImage(mediaType?: string): boolean {
 		"image/avif",
 		"image/gif",
 		"image/tiff",
+		"image/svg+xml",
 	];
 	return supported.includes(mediaType.toLowerCase());
+}
+
+/**
+ * Check if media type is an SVG
+ */
+export function isSvg(mediaType?: string): boolean {
+	return mediaType?.toLowerCase() === "image/svg+xml";
 }
 
 /**
@@ -60,8 +68,11 @@ export function hashTransformOptions(options: TransformOptions): string {
 export async function transformImage(
 	data: Uint8Array,
 	options: TransformOptions,
+	inputMediaType?: string,
 ): Promise<Uint8Array> {
-	let pipeline = sharp(data);
+	// For SVGs, set a default density for crisp rasterization
+	const sharpOptions = isSvg(inputMediaType) ? { density: 150 } : {};
+	let pipeline = sharp(data, sharpOptions);
 
 	// Resize
 	if (options.width || options.height) {
@@ -69,7 +80,7 @@ export async function transformImage(
 			width: options.width,
 			height: options.height,
 			fit: options.fit ?? "cover",
-			withoutEnlargement: true,
+			withoutEnlargement: !isSvg(inputMediaType), // SVGs can be upscaled
 		});
 	}
 
@@ -96,9 +107,12 @@ export async function transformImage(
 		pipeline = pipeline.blur(options.blur);
 	}
 
-	// Output format
+	// Output format - SVGs must be converted to a raster format
 	const quality = options.quality ?? 80;
-	switch (options.format) {
+	const needsRasterFormat = isSvg(inputMediaType) && !options.format;
+	const format = needsRasterFormat ? "png" : options.format;
+
+	switch (format) {
 		case "webp":
 			pipeline = pipeline.webp({ quality });
 			break;
@@ -112,7 +126,7 @@ export async function transformImage(
 		case "jpeg":
 			pipeline = pipeline.jpeg({ quality });
 			break;
-		// Default: keep original format
+		// Default: keep original format (except SVG which needs raster)
 	}
 
 	const result = await pipeline.toBuffer();
@@ -126,17 +140,24 @@ export function getTransformMimeType(
 	originalType: string | undefined,
 	options: TransformOptions,
 ): string {
+	const formatMap: Record<string, string> = {
+		webp: "image/webp",
+		avif: "image/avif",
+		png: "image/png",
+		jpg: "image/jpeg",
+		jpeg: "image/jpeg",
+	};
+
 	if (options.format) {
-		const formatMap: Record<string, string> = {
-			webp: "image/webp",
-			avif: "image/avif",
-			png: "image/png",
-			jpg: "image/jpeg",
-			jpeg: "image/jpeg",
-		};
 		return (
 			formatMap[options.format] ?? originalType ?? "application/octet-stream"
 		);
 	}
+
+	// SVGs without explicit format convert to PNG
+	if (isSvg(originalType)) {
+		return "image/png";
+	}
+
 	return originalType ?? "application/octet-stream";
 }

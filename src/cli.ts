@@ -530,7 +530,7 @@ program
 							spinner.text = "Applying image transforms...";
 						}
 
-						outputData = await transformImage(file.data, transformOpts);
+						outputData = await transformImage(file.data, transformOpts, file.mediaType);
 						outputMimeType = getTransformMimeType(
 							file.mediaType,
 							transformOpts,

@@ -95,7 +95,7 @@ txex <outpoint> -w 1200 -h 630 --fit cover -f webp -o og.webp
 |--------|-------|-------------|
 | `--width <px>` | `-w` | Resize width |
 | `--height <px>` | `-h` | Resize height |
-| `--format <fmt>` | `-f` | Output format: `webp`, `avif`, `png`, `jpg` |
+| `--format <fmt>` | `-f` | Output format: `webp`, `avif`, `png`, `jpg` (SVGs auto-convert to PNG) |
 | `--fit <mode>` | | Resize fit: `cover`, `contain`, `fill`, `inside` |
 | `--quality <n>` | `-q` | Output quality 1-100 (default: 80) |
 | `--blur <radius>` | | Blur radius 0.3-1000 |

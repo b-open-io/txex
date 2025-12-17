@@ -84,6 +84,7 @@ export type { TransformOptions } from "./transform.js";
 export {
 	getTransformMimeType,
 	hashTransformOptions,
+	isSvg,
 	isTransformableImage,
 	transformImage,
 } from "./transform.js";
