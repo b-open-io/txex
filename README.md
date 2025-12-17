@@ -28,6 +28,7 @@ npm install -g txex
   - [Image Transforms](#image-transforms)
   - [Video Transforms](#video-transforms)
   - [Audio Transforms](#audio-transforms)
+  - [Metadata Inspection](#metadata-inspection)
   - [Cache Management](#cache-management)
 - [Library Usage](#library-usage)
 - [Configuration](#configuration)
@@ -162,6 +163,18 @@ txex <outpoint> --normalize --channels 1 -f wav -o normalized.wav
 | `--start <time>` | Trim start time |
 | `--duration <time>` | Trim duration |
 | `--normalize` | Normalize volume level |
+
+### Metadata Inspection
+
+```bash
+# Show metadata without extracting
+txex info <outpoint>
+
+# JSON output for scripting
+txex info <outpoint> --json
+```
+
+Output includes: protocol, media type, size, filename, chunk count, origin (if different), and satoshis.
 
 ### Cache Management
 

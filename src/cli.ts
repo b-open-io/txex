@@ -32,7 +32,9 @@ import {
 	OutputNotFoundError,
 	ProtocolError,
 } from "./errors.js";
-import { extract, parseOutpoint } from "./extract.js";
+import { detectProtocol, extract, parseOutpoint } from "./extract.js";
+import { findOrigin } from "./ordinal.js";
+import { fetchTx } from "./providers/junglebus.js";
 import {
 	getTransformMimeType,
 	hashTransformOptions,
@@ -613,6 +615,102 @@ program
 			}
 		},
 	);
+
+// Info subcommand
+program
+	.command("info")
+	.description("Show metadata about a transaction without extracting")
+	.argument("<outpoint>", "Transaction outpoint (txid_vout or just txid)")
+	.option("--json", "Output as JSON")
+	.action(async (outpoint: string, options: { json?: boolean }) => {
+		const isInteractive = process.stdout.isTTY && !options.json;
+		const spinner = ora({
+			color: "cyan",
+			spinner: "dots",
+			isSilent: !isInteractive,
+		});
+
+		try {
+			const { txid, vout } = parseOutpoint(outpoint);
+
+			if (isInteractive) {
+				spinner.start("Fetching transaction...");
+			}
+
+			// Fetch the transaction
+			const tx = await fetchTx(txid);
+			const output = tx.outputs[vout];
+
+			if (!output) {
+				throw new OutputNotFoundError(txid, vout);
+			}
+
+			// Detect protocol
+			const protocol = detectProtocol(output.lockingScript);
+
+			// Extract full file info (gets chunks, media type, etc.)
+			const file = await extract(outpoint, { concurrency: 5 });
+
+			// Check if origin differs (for ordinals)
+			let origin: { txid: string; vout: number } | undefined;
+			if (output.satoshis === 1) {
+				const originResult = await findOrigin({ txid, vout });
+				if (originResult.txid !== txid || originResult.vout !== vout) {
+					origin = originResult;
+				}
+			}
+
+			const info = {
+				outpoint: `${txid}_${vout}`,
+				protocol: file.protocol,
+				mediaType: file.mediaType ?? "unknown",
+				size: file.data.length,
+				sizeFormatted: formatBytes(file.data.length),
+				filename: file.filename,
+				chunks: file.chunks,
+				origin: origin ? `${origin.txid}_${origin.vout}` : undefined,
+				satoshis: Number(output.satoshis),
+			};
+
+			spinner.stop();
+
+			if (options.json) {
+				console.log(JSON.stringify(info, null, 2));
+				return;
+			}
+
+			console.log(chalk.cyan.bold("\nTransaction Info\n"));
+			console.log(chalk.dim("Outpoint:  "), chalk.white(info.outpoint));
+			console.log(chalk.dim("Protocol:  "), protocolColor(info.protocol));
+			console.log(chalk.dim("Media Type:"), chalk.white(info.mediaType));
+			console.log(chalk.dim("Size:      "), chalk.green(info.sizeFormatted));
+			if (info.filename) {
+				console.log(chalk.dim("Filename:  "), chalk.white(info.filename));
+			}
+			if (info.chunks && info.chunks > 1) {
+				console.log(
+					chalk.dim("Chunks:    "),
+					chalk.cyan(info.chunks.toString()),
+				);
+			}
+			if (info.origin) {
+				console.log(chalk.dim("Origin:    "), chalk.yellow(info.origin));
+			}
+			console.log(
+				chalk.dim("Satoshis:  "),
+				chalk.white(info.satoshis.toString()),
+			);
+			console.log();
+		} catch (err) {
+			const message = formatError(err);
+			if (!options.json) {
+				spinner.fail(chalk.red(message));
+			} else {
+				console.error(JSON.stringify({ error: message }));
+			}
+			process.exit(1);
+		}
+	});
 
 // Cache subcommand
 program
