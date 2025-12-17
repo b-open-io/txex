@@ -4,38 +4,33 @@
 Output demo.gif
 
 Set FontSize 14
-Set Width 1000
-Set Height 550
+Set Width 900
+Set Height 450
 Set Theme "Catppuccin Mocha"
-Set TypingSpeed 40ms
+Set TypingSpeed 35ms
 Set Padding 20
 
-# Show version
-Type "txex --version"
+# Extract an image inscription
+Type "txex 8c4400b113c956748953ce20da2a0290a0dde3f9a6d7d1f68e290b2799805440_0 -o ape.jpg"
 Enter
-Sleep 1s
+Sleep 5s
 
-# Extract 3D model from listing (traces origin automatically)
-Type "txex 2173157555b91fba7fc830cdc3fe3960ccb1acb64a50a25c8499f4f393708642_0 -o model.glb"
+# Extract audio from a marketplace listing (auto-traces to origin)
+Type "txex 37ce566cfc6462e109e39f7b3b90db73191deaa098bb785bc3d06b96fc1b3797_0 -o track.mp3"
 Enter
-Sleep 8s
+Sleep 6s
 
-# Extract video from listing (9MB, traces origin)
-Type "txex dd4794277fed1b14574ca1aa9423faa18af9abff028713d40fc362ff61b22a39_0 -o video.mp4"
+# Download entire collection (auto-detected!)
+Type "txex df8a277aa03b595f6e50b576093ef6fc039a83635b2325640fce6c8d27f9edb5_0 --limit 10"
 Enter
 Sleep 12s
 
-# Show the files
-Type "ls -lh model.glb video.mp4"
-Enter
-Sleep 2s
-
-# Show cache stats
-Type "txex cache --stats"
+# Show results
+Type "ls -lh ape.jpg track.mp3 && ls 'Cyber Apes'"
 Enter
 Sleep 2s
 
 # Clean up
-Type "rm -f model.glb video.mp4"
+Type "rm -rf ape.jpg track.mp3 'Cyber Apes'"
 Enter
 Sleep 500ms

@@ -20,6 +20,11 @@ import {
 	readTransformCache,
 	writeTransformCache,
 } from "./cache.js";
+import {
+	checkIfCollection,
+	fetchCollectionItems,
+	type CollectionItem,
+} from "./collection.js";
 import { loadConfig, mergeWithConfig } from "./config.js";
 import {
 	ChunkNotFoundError,
@@ -74,6 +79,135 @@ const getExtension = (mediaType?: string): string => {
 	return ext ? `.${ext}` : "";
 };
 
+// Handle collection download
+async function handleCollection(
+	collectionId: string,
+	collectionName: string | undefined,
+	options: {
+		output?: string;
+		concurrency: number;
+		limit?: number;
+		quiet: boolean;
+	},
+): Promise<void> {
+	const outputDir = options.output ?? `./${collectionName ?? "collection"}`;
+
+	// Ensure output directory exists
+	await mkdir(outputDir, { recursive: true });
+
+	if (!options.quiet) {
+		console.log(chalk.cyan.bold("\nCollection Detected\n"));
+		if (collectionName) {
+			console.log(chalk.dim("Name:  "), chalk.white(collectionName));
+		}
+		console.log(chalk.dim("Output:"), chalk.white(resolve(outputDir)));
+		console.log();
+	}
+
+	// Fetch collection items
+	const spinner = ora({
+		text: "Fetching collection items...",
+		color: "cyan",
+	});
+	if (!options.quiet) spinner.start();
+
+	let items: CollectionItem[];
+	try {
+		items = await fetchCollectionItems(collectionId, {
+			limit: options.limit,
+			onProgress: (count) => {
+				if (!options.quiet) {
+					spinner.text = `Found ${count} items...`;
+				}
+			},
+		});
+	} catch (err) {
+		if (!options.quiet) spinner.fail("Failed to fetch collection");
+		console.error(chalk.red((err as Error).message));
+		process.exit(1);
+	}
+
+	if (items.length === 0) {
+		if (!options.quiet) spinner.fail("No items found in collection");
+		process.exit(1);
+	}
+
+	if (!options.quiet) {
+		spinner.succeed(`Found ${chalk.cyan(items.length)} items`);
+		console.log();
+	}
+
+	// Download items in parallel
+	let completed = 0;
+	let failed = 0;
+	const total = items.length;
+
+	const updateProgress = () => {
+		if (!options.quiet) {
+			const pct = Math.round((completed / total) * 100);
+			const bar =
+				"█".repeat(Math.floor(pct / 5)) + "░".repeat(20 - Math.floor(pct / 5));
+			process.stdout.write(
+				`\r${chalk.cyan(bar)} ${chalk.white(`${completed}/${total}`)} ` +
+					`${chalk.green(`✓${completed - failed}`)} ` +
+					`${failed > 0 ? chalk.red(`✗${failed}`) : ""}`,
+			);
+		}
+	};
+
+	const downloadItem = async (item: CollectionItem, index: number) => {
+		try {
+			const file = await extract(item.outpoint, { concurrency: 1 });
+			const ext = getExtension(file.mediaType);
+			const baseName = item.name
+				? item.name.replace(/[^a-zA-Z0-9_-]/g, "_")
+				: "item";
+			const filename = `${String(index).padStart(4, "0")}_${baseName}${ext}`;
+			const filepath = join(outputDir, filename);
+			await writeFile(filepath, file.data);
+			completed++;
+		} catch {
+			completed++;
+			failed++;
+		}
+		updateProgress();
+	};
+
+	// Process in batches for concurrency
+	const queue = [...items];
+	const inFlight: Promise<void>[] = [];
+
+	while (queue.length > 0 || inFlight.length > 0) {
+		while (inFlight.length < options.concurrency && queue.length > 0) {
+			const item = queue.shift()!;
+			const index = items.indexOf(item);
+			const promise = downloadItem(item, index).finally(() => {
+				const idx = inFlight.indexOf(promise);
+				if (idx > -1) inFlight.splice(idx, 1);
+			});
+			inFlight.push(promise);
+		}
+
+		if (inFlight.length > 0) {
+			await Promise.race(inFlight);
+		}
+	}
+
+	if (!options.quiet) {
+		console.log("\n");
+		if (failed > 0) {
+			console.log(
+				chalk.yellow("⚠"),
+				`Downloaded ${completed - failed}/${total} items`,
+				chalk.dim(`(${failed} failed)`),
+			);
+		} else {
+			console.log(chalk.green("✓"), `Downloaded all ${total} items`);
+		}
+		console.log(chalk.dim("  → ") + chalk.underline.cyan(resolve(outputDir)));
+	}
+}
+
 // Format error for display
 const formatError = (err: unknown): string => {
 	if (err instanceof NetworkError) {
@@ -106,6 +240,7 @@ program
 	)
 	.option("-o, --output <path>", "Output file path")
 	.option("-c, --concurrency <n>", "Parallel chunk fetches", "5")
+	.option("-l, --limit <n>", "Max items for collections (default: all)")
 	.option("-q, --quiet", "Suppress all output except errors")
 	// Transform options
 	.option("-w, --width <px>", "Resize width")
@@ -138,6 +273,21 @@ program
 					10,
 				);
 				const quiet = options.quiet as boolean;
+
+				// Auto-detect if this is a collection
+				const collectionInfo = await checkIfCollection(outpoint);
+				if (collectionInfo.isCollection) {
+					const limit = options.limit
+						? Number.parseInt(options.limit as string, 10)
+						: undefined;
+					await handleCollection(outpoint, collectionInfo.name, {
+						output: options.output as string | undefined,
+						concurrency,
+						limit,
+						quiet,
+					});
+					return;
+				}
 
 				// Build transform options - only include fit/quality if there's an actual transform
 				const transformOpts: TransformOptions = {};
