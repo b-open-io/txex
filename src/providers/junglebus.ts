@@ -158,3 +158,88 @@ function readVarint(bytes: Uint8Array): { value: number; bytesRead: number } {
 	// 0xff - 8 bytes, but we don't support scripts that large
 	throw new Error("Varint too large");
 }
+
+/**
+ * Fetch raw transaction hex (with caching)
+ */
+export async function fetchRawTx(
+	txid: string,
+	cacheOptions?: CacheOptions,
+): Promise<string> {
+	// Check cache first
+	const cached = await readTxCache(txid, cacheOptions);
+	if (cached) {
+		return cached;
+	}
+
+	const url = `${JUNGLEBUS_BASE}/v1/transaction/get/${txid}/bin`;
+	const resp = await fetch(url);
+
+	if (!resp.ok) {
+		throw new NetworkError(`Transaction not found: ${txid}`, txid, resp.status);
+	}
+
+	const buffer = await resp.arrayBuffer();
+	const bytes = new Uint8Array(buffer);
+
+	// Check if it's an error response
+	if (bytes.length < 100) {
+		const text = new TextDecoder().decode(bytes);
+		if (text.includes("not-found")) {
+			throw new NetworkError(`Transaction not found: ${txid}`, txid, 404);
+		}
+	}
+
+	const hex = Utils.toHex(bytes);
+	await writeTxCache(txid, hex, cacheOptions);
+	return hex;
+}
+
+/**
+ * Fetch and parse transaction
+ */
+export async function fetchTx(
+	txid: string,
+	cacheOptions?: CacheOptions,
+): Promise<Transaction> {
+	const hex = await fetchRawTx(txid, cacheOptions);
+	return Transaction.fromHex(hex);
+}
+
+/**
+ * Fetch multiple transactions in parallel with rate limiting
+ */
+export async function fetchTxBatch(
+	txids: string[],
+	concurrency = 5,
+	cacheOptions?: CacheOptions,
+): Promise<Map<string, Transaction>> {
+	const results = new Map<string, Transaction>();
+	const queue = [...txids];
+	const inFlight: Promise<void>[] = [];
+
+	while (queue.length > 0 || inFlight.length > 0) {
+		while (inFlight.length < concurrency && queue.length > 0) {
+			const txid = queue.shift();
+			if (!txid) break;
+			const promise = fetchTx(txid, cacheOptions)
+				.then((tx) => {
+					results.set(txid, tx);
+				})
+				.catch((err) => {
+					console.error(`Failed to fetch ${txid}:`, err.message);
+				})
+				.finally(() => {
+					const idx = inFlight.indexOf(promise);
+					if (idx > -1) inFlight.splice(idx, 1);
+				});
+			inFlight.push(promise);
+		}
+
+		if (inFlight.length > 0) {
+			await Promise.race(inFlight);
+		}
+	}
+
+	return results;
+}

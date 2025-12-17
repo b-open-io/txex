@@ -27,6 +27,7 @@ npm install -g txex
   - [Collections](#collections)
   - [Image Transforms](#image-transforms)
   - [Video Transforms](#video-transforms)
+  - [Audio Transforms](#audio-transforms)
   - [Cache Management](#cache-management)
 - [Library Usage](#library-usage)
 - [Configuration](#configuration)
@@ -36,7 +37,7 @@ npm install -g txex
 ## Features
 
 - **Universal Extraction** - Seamlessly handles B://, BCAT, 1Sat Ordinals, and ORDFS Streams
-- **Media Processing** - Resize, crop, format conversion for images (sharp) and video (ffmpeg)
+- **Media Processing** - Resize, crop, format conversion for images (sharp), video, and audio (ffmpeg)
 - **Collection Downloads** - Auto-detect and download entire NFT collections in parallel
 - **Origin Tracking** - Automatically traces marketplace listings back to their inscription
 - **Smart Caching** - Two-tier cache for raw transactions and transformed outputs
@@ -132,6 +133,36 @@ txex <outpoint> -f mp4 --no-audio -o silent.mp4
 | `--no-audio` | Strip audio track |
 | `-f <fmt>` | Output format: `mp4`, `webm`, `gif`, `mov` |
 
+### Audio Transforms
+
+Requires [ffmpeg](https://ffmpeg.org/download.html) installed.
+
+```bash
+# Convert to different format
+txex <outpoint> -f ogg -o track.ogg
+
+# High quality MP3 with bitrate
+txex <outpoint> -f mp3 --bitrate 320k -o track.mp3
+
+# Trim audio (start at 10s, 30s duration)
+txex <outpoint> --start 10 --duration 30 -f mp3 -o clip.mp3
+
+# Normalize volume and convert to mono
+txex <outpoint> --normalize --channels 1 -f wav -o normalized.wav
+```
+
+#### Audio Options
+
+| Option | Description |
+|--------|-------------|
+| `-f <fmt>` | Output format: `mp3`, `wav`, `ogg`, `flac`, `aac`, `m4a` |
+| `--bitrate <rate>` | Bitrate (e.g., `128k`, `320k`) |
+| `--sample-rate <hz>` | Sample rate (e.g., `44100`, `48000`) |
+| `--channels <n>` | Channels: `1` (mono), `2` (stereo) |
+| `--start <time>` | Trim start time |
+| `--duration <time>` | Trim duration |
+| `--normalize` | Normalize volume level |
+
 ### Cache Management
 
 ```bash
@@ -223,7 +254,7 @@ txex abc123_0 -w 400 -f png     # Different transform: ~0.3s (tx cached)
 
 ## Data Providers
 
-txex uses [JungleBus](https://junglebus.gorillapool.io) as the primary transaction provider with [WhatsOnChain](https://whatsonchain.com) as fallback. No API key required.
+txex uses [JungleBus](https://junglebus.gorillapool.io) for transaction data. No API key required.
 
 Collection metadata is fetched from [GorillaPool's Ordinals API](https://ordinals.gorillapool.io).
 

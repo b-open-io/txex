@@ -41,10 +41,15 @@ import {
 	transformImage,
 } from "./transform.js";
 import {
+	type AudioTransformOptions,
 	checkFfmpeg,
+	getAudioTransformMimeType,
 	getVideoTransformMimeType,
+	hashAudioTransformOptions,
 	hashVideoTransformOptions,
+	isTransformableAudio,
 	isTransformableVideo,
+	transformAudio,
 	transformVideo,
 	type VideoTransformOptions,
 } from "./video.js";
@@ -275,6 +280,11 @@ program
 	.option("--duration <time>", "Trim duration")
 	.option("--fps <n>", "Output frames per second")
 	.option("--no-audio", "Strip audio from video")
+	// Audio-specific options
+	.option("--bitrate <rate>", "Audio bitrate (e.g., 128k, 320k)")
+	.option("--sample-rate <hz>", "Audio sample rate (e.g., 44100, 48000)")
+	.option("--channels <n>", "Audio channels (1=mono, 2=stereo)")
+	.option("--normalize", "Normalize audio volume")
 	.option("--no-cache", "Disable caching")
 	.action(
 		async (
@@ -425,13 +435,65 @@ program
 				if (options.fit)
 					videoOpts.fit = options.fit as VideoTransformOptions["fit"];
 
+				// Build audio transform options
+				const audioOpts: AudioTransformOptions = {};
+				if (options.start) audioOpts.start = options.start as string;
+				if (options.duration) audioOpts.duration = options.duration as string;
+				if (options.bitrate) audioOpts.bitrate = options.bitrate as string;
+				if (options.sampleRate)
+					audioOpts.sampleRate = Number.parseInt(
+						options.sampleRate as string,
+						10,
+					);
+				if (options.channels)
+					audioOpts.channels = Number.parseInt(options.channels as string, 10);
+				if (options.normalize) audioOpts.normalize = true;
+				if (
+					options.format &&
+					["mp3", "wav", "ogg", "flac", "aac", "m4a"].includes(
+						options.format as string,
+					)
+				)
+					audioOpts.format = options.format as AudioTransformOptions["format"];
+
 				const hasVideoTransforms = Object.keys(videoOpts).length > 0;
+				const hasAudioTransforms = Object.keys(audioOpts).length > 0;
 				const isVideo = isTransformableVideo(file.mediaType);
+				const isAudio = isTransformableAudio(file.mediaType);
 				const isImage = isTransformableImage(file.mediaType);
 
 				// Apply transforms based on media type
-				if (hasTransforms || hasVideoTransforms) {
-					if (isVideo) {
+				if (hasTransforms || hasVideoTransforms || hasAudioTransforms) {
+					if (isAudio && hasAudioTransforms) {
+						// Audio transforms via ffmpeg
+						const ffmpegOk = await checkFfmpeg();
+						if (!ffmpegOk) {
+							throw new ProtocolError(
+								"ffmpeg not found. Install ffmpeg for audio transforms: https://ffmpeg.org/download.html",
+							);
+						}
+
+						if (!quiet) {
+							spinner.text = "Applying audio transforms...";
+						}
+
+						outputData = await transformAudio(
+							file.data,
+							audioOpts,
+							file.mediaType,
+						);
+						outputMimeType = getAudioTransformMimeType(
+							file.mediaType,
+							audioOpts,
+						);
+
+						// Cache the transformed result
+						if (!cacheDisabled) {
+							const audioHash = hashAudioTransformOptions(audioOpts);
+							const ext = getExtension(outputMimeType);
+							await writeTransformCache(outpoint, audioHash, ext, outputData);
+						}
+					} else if (isVideo) {
 						// Video transforms via ffmpeg
 						const ffmpegOk = await checkFfmpeg();
 						if (!ffmpegOk) {

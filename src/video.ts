@@ -37,6 +37,23 @@ export interface VideoTransformOptions {
 	fps?: number;
 }
 
+export interface AudioTransformOptions {
+	/** Output format */
+	format?: "mp3" | "wav" | "ogg" | "flac" | "aac" | "m4a";
+	/** Bitrate (e.g., "128k", "320k") */
+	bitrate?: string;
+	/** Sample rate (e.g., 44100, 48000) */
+	sampleRate?: number;
+	/** Number of channels (1 = mono, 2 = stereo) */
+	channels?: number;
+	/** Start time for trim */
+	start?: string;
+	/** Duration for trim */
+	duration?: string;
+	/** Normalize volume */
+	normalize?: boolean;
+}
+
 let ffmpegChecked = false;
 let ffmpegAvailable = false;
 
@@ -93,10 +110,20 @@ export function isTransformableAudio(mediaType?: string): boolean {
 }
 
 /**
- * Generate a hash of transform options for cache key
+ * Generate a hash of video transform options for cache key
  */
 export function hashVideoTransformOptions(
 	options: VideoTransformOptions,
+): string {
+	const normalized = JSON.stringify(options, Object.keys(options).sort());
+	return createHash("sha256").update(normalized).digest("hex").slice(0, 12);
+}
+
+/**
+ * Generate a hash of audio transform options for cache key
+ */
+export function hashAudioTransformOptions(
+	options: AudioTransformOptions,
 ): string {
 	const normalized = JSON.stringify(options, Object.keys(options).sort());
 	return createHash("sha256").update(normalized).digest("hex").slice(0, 12);
@@ -297,4 +324,115 @@ export function getVideoTransformMimeType(
 	}
 
 	return originalType || "video/mp4";
+}
+
+/**
+ * Transform audio using ffmpeg
+ */
+export async function transformAudio(
+	data: Uint8Array,
+	options: AudioTransformOptions,
+	inputFormat?: string,
+): Promise<Uint8Array> {
+	const available = await checkFfmpeg();
+	if (!available) {
+		throw new Error(
+			"ffmpeg not found. Install ffmpeg to use audio transforms: https://ffmpeg.org/download.html",
+		);
+	}
+
+	// Create temp directory
+	const tempDir = join(tmpdir(), "txex-audio");
+	await mkdir(tempDir, { recursive: true });
+
+	const inputExt = inputFormat?.split("/")[1]?.replace("mpeg", "mp3") || "mp3";
+	const inputPath = join(tempDir, `input-${Date.now()}.${inputExt}`);
+	const outputExt = options.format || inputExt;
+	const outputPath = join(tempDir, `output-${Date.now()}.${outputExt}`);
+
+	try {
+		// Write input file
+		await writeFile(inputPath, data);
+
+		// Build ffmpeg command
+		const args: string[] = ["-y", "-i", inputPath];
+
+		// Trim options
+		if (options.start) {
+			args.push("-ss", options.start);
+		}
+		if (options.duration) {
+			args.push("-t", options.duration);
+		}
+
+		// Bitrate
+		if (options.bitrate) {
+			args.push("-b:a", options.bitrate);
+		}
+
+		// Sample rate
+		if (options.sampleRate) {
+			args.push("-ar", options.sampleRate.toString());
+		}
+
+		// Channels
+		if (options.channels) {
+			args.push("-ac", options.channels.toString());
+		}
+
+		// Normalize volume
+		if (options.normalize) {
+			args.push("-af", "loudnorm");
+		}
+
+		// Format-specific codecs
+		if (options.format === "mp3") {
+			args.push("-c:a", "libmp3lame");
+		} else if (options.format === "ogg") {
+			args.push("-c:a", "libvorbis");
+		} else if (options.format === "flac") {
+			args.push("-c:a", "flac");
+		} else if (options.format === "aac" || options.format === "m4a") {
+			args.push("-c:a", "aac");
+		}
+
+		args.push(outputPath);
+
+		// Run ffmpeg
+		const cmd = `ffmpeg ${args.map((a) => (a.includes(" ") ? `"${a}"` : a)).join(" ")}`;
+		await execAsync(cmd, { maxBuffer: 100 * 1024 * 1024 });
+
+		// Read output
+		const result = await readFile(outputPath);
+		return new Uint8Array(result);
+	} finally {
+		// Cleanup temp files
+		try {
+			await unlink(inputPath);
+		} catch {}
+		try {
+			await unlink(outputPath);
+		} catch {}
+	}
+}
+
+/**
+ * Get output MIME type for audio transforms
+ */
+export function getAudioTransformMimeType(
+	originalType: string | undefined,
+	options: AudioTransformOptions,
+): string {
+	if (options.format) {
+		const formatMap: Record<string, string> = {
+			mp3: "audio/mpeg",
+			wav: "audio/wav",
+			ogg: "audio/ogg",
+			flac: "audio/flac",
+			aac: "audio/aac",
+			m4a: "audio/mp4",
+		};
+		return formatMap[options.format] || originalType || "audio/mpeg";
+	}
+	return originalType || "audio/mpeg";
 }

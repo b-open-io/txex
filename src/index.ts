@@ -68,14 +68,16 @@ export {
 	parseOutputContent,
 	streamContent,
 } from "./protocols/stream.js";
+// Providers
 export {
 	fetchOutput,
+	fetchRawTx,
 	fetchRawTxBin,
 	fetchSpend,
+	fetchTx,
+	fetchTxBatch,
 	fetchTxJB,
 } from "./providers/junglebus.js";
-// Providers
-export { fetchRawTx, fetchTx, fetchTxBatch } from "./providers/woc.js";
 
 // Image transforms
 export type { TransformOptions } from "./transform.js";
@@ -85,14 +87,17 @@ export {
 	isTransformableImage,
 	transformImage,
 } from "./transform.js";
-
 // Video transforms
-export type { VideoTransformOptions } from "./video.js";
+// Audio transforms
+export type { AudioTransformOptions, VideoTransformOptions } from "./video.js";
 export {
 	checkFfmpeg,
+	getAudioTransformMimeType,
 	getVideoTransformMimeType,
+	hashAudioTransformOptions,
 	hashVideoTransformOptions,
 	isTransformableAudio,
 	isTransformableVideo,
+	transformAudio,
 	transformVideo,
 } from "./video.js";

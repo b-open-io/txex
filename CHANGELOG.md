@@ -9,7 +9,7 @@
   - `--limit` flag to cap number of items
 - **Origin lookup**: Automatically trace marketplace listings to their origin inscription
 - **ORDFS Stream protocol**: Follow ordinal chains for streaming content (`ordfs/stream`)
-- **JungleBus provider**: Primary transaction provider with WhatsOnChain fallback
+- **JungleBus provider**: Transaction data provider
 
 ### Changed
 - CLI output now shows clickable absolute file paths

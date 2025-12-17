@@ -19,7 +19,7 @@ import {
 } from "./protocols/bcat.js";
 import { isOrdinals, parseOrdinals } from "./protocols/ordinals.js";
 import { extractStream, isStreamContinuation } from "./protocols/stream.js";
-import { fetchTx } from "./providers/woc.js";
+import { fetchTx } from "./providers/junglebus.js";
 
 export interface ExtractedFile {
 	data: Uint8Array;
