@@ -29,6 +29,7 @@ npm install -g txex
   - [Video Transforms](#video-transforms)
   - [Audio Transforms](#audio-transforms)
   - [Metadata Inspection](#metadata-inspection)
+  - [Color Extraction](#color-extraction)
   - [Cache Management](#cache-management)
 - [Library Usage](#library-usage)
 - [Configuration](#configuration)
@@ -175,6 +176,21 @@ txex info <outpoint> --json
 ```
 
 Output includes: protocol, media type, size, filename, chunk count, origin (if different), and satoshis.
+
+### Color Extraction
+
+```bash
+# Extract dominant color and palette
+txex color <outpoint>
+
+# Custom palette size
+txex color <outpoint> -n 8
+
+# JSON output
+txex color <outpoint> --json
+```
+
+Returns dominant color and color palette for images (useful for UI theming, placeholders).
 
 ### Cache Management
 

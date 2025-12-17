@@ -82,6 +82,8 @@ export {
 // Image transforms
 export type { TransformOptions } from "./transform.js";
 export {
+	getColorPalette,
+	getDominantColor,
 	getTransformMimeType,
 	hashTransformOptions,
 	isSvg,

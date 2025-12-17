@@ -36,6 +36,8 @@ import { detectProtocol, extract, parseOutpoint } from "./extract.js";
 import { findOrigin } from "./ordinal.js";
 import { fetchTx } from "./providers/junglebus.js";
 import {
+	getColorPalette,
+	getDominantColor,
 	getTransformMimeType,
 	hashTransformOptions,
 	isTransformableImage,
@@ -711,6 +713,80 @@ program
 			process.exit(1);
 		}
 	});
+
+// Color subcommand
+program
+	.command("color")
+	.description("Extract dominant color and palette from an image")
+	.argument("<outpoint>", "Transaction outpoint (txid_vout or just txid)")
+	.option("-n, --count <n>", "Number of palette colors", "5")
+	.option("--json", "Output as JSON")
+	.action(
+		async (
+			outpoint: string,
+			options: { count?: string; json?: boolean },
+		) => {
+			const isInteractive = process.stdout.isTTY && !options.json;
+			const spinner = ora({
+				color: "cyan",
+				spinner: "dots",
+				isSilent: !isInteractive,
+			});
+
+			try {
+				if (isInteractive) {
+					spinner.start("Extracting colors...");
+				}
+
+				// Extract the file
+				const file = await extract(outpoint, { concurrency: 5 });
+
+				// Check if it's an image
+				if (!isTransformableImage(file.mediaType)) {
+					throw new ProtocolError(
+						`Cannot extract colors from ${file.mediaType} - not an image`,
+					);
+				}
+
+				// Get dominant color and palette
+				const [dominant, palette] = await Promise.all([
+					getDominantColor(file.data),
+					getColorPalette(file.data, Number.parseInt(options.count ?? "5", 10)),
+				]);
+
+				spinner.stop();
+
+				if (options.json) {
+					console.log(JSON.stringify({ dominant, palette }, null, 2));
+					return;
+				}
+
+				console.log(chalk.cyan.bold("\nColors\n"));
+				console.log(
+					chalk.dim("Dominant:"),
+					chalk.hex(dominant).bold("████"),
+					chalk.white(dominant),
+				);
+				console.log(chalk.dim("Palette: "));
+				for (const color of palette) {
+					console.log(
+						chalk.dim("         "),
+						chalk.hex(color).bold("██"),
+						chalk.white(color),
+					);
+				}
+				console.log();
+			} catch (err) {
+				const message = formatError(err);
+				if (!options.json) {
+					spinner.fail(chalk.red(message));
+				} else {
+					console.error(JSON.stringify({ error: message }));
+				}
+				process.exit(1);
+			}
+		},
+	);
 
 // Cache subcommand
 program

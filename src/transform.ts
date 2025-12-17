@@ -136,6 +136,59 @@ export async function transformImage(
 /**
  * Get output MIME type based on transform options
  */
+/**
+ * Extract dominant color from image
+ * Returns hex color string (e.g., "#ff5733")
+ */
+export async function getDominantColor(data: Uint8Array): Promise<string> {
+	// Resize to 1x1 pixel to get average/dominant color
+	const { data: pixels } = await sharp(data)
+		.resize(1, 1, { fit: "cover" })
+		.raw()
+		.toBuffer({ resolveWithObject: true });
+
+	const r = pixels[0];
+	const g = pixels[1];
+	const b = pixels[2];
+
+	return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+}
+
+/**
+ * Extract color palette from image
+ * Returns array of hex color strings
+ */
+export async function getColorPalette(
+	data: Uint8Array,
+	count = 5,
+): Promise<string[]> {
+	// Resize to small grid to sample colors
+	const gridSize = Math.ceil(Math.sqrt(count * 4)); // oversample
+	const { data: pixels } = await sharp(data)
+		.resize(gridSize, gridSize, { fit: "cover" })
+		.raw()
+		.toBuffer({ resolveWithObject: true });
+
+	// Collect unique-ish colors
+	const colors: Map<string, number> = new Map();
+	for (let i = 0; i < pixels.length; i += 3) {
+		// Quantize to reduce similar colors
+		const r = Math.round(pixels[i] / 32) * 32;
+		const g = Math.round(pixels[i + 1] / 32) * 32;
+		const b = Math.round(pixels[i + 2] / 32) * 32;
+		const hex = `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+		colors.set(hex, (colors.get(hex) ?? 0) + 1);
+	}
+
+	// Sort by frequency and take top N
+	const sorted = [...colors.entries()]
+		.sort((a, b) => b[1] - a[1])
+		.slice(0, count)
+		.map(([hex]) => hex);
+
+	return sorted;
+}
+
 export function getTransformMimeType(
 	originalType: string | undefined,
 	options: TransformOptions,
