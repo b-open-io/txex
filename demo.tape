@@ -15,18 +15,18 @@ Type "txex --version"
 Enter
 Sleep 1s
 
-# Extract a 1Sat Ordinal (text/plain)
-Type "txex 668fd698178715a2b8941e87a28b7ceb16bdb33656c8570e82d81ccebab3fdbb_0"
+# Extract B:// image and transform to webp thumbnail
+Type "txex cbacb16c3a03729165542f20404827f1ee91bc1f9783089c41c59524ebf75a22_0 -w 200 -f webp -o thumb.webp"
 Enter
-Sleep 4s
+Sleep 5s
 
 # Extract BCAT chunked file (video/mp4 - 9 chunks)
 Type "txex fb3c1b442b352f6dcf503dcfa8ad274897184487f41928832858122c1e669da1_0 -o shuaa.mp4"
 Enter
-Sleep 12s
+Sleep 15s
 
 # Show the files
-Type "ls -lh *.mp4 668fd698*"
+Type "ls -lh thumb.webp shuaa.mp4"
 Enter
 Sleep 2s
 
@@ -36,6 +36,6 @@ Enter
 Sleep 2s
 
 # Clean up
-Type "rm -f shuaa.mp4 668fd698* 2>/dev/null"
+Type "rm -f thumb.webp shuaa.mp4"
 Enter
 Sleep 500ms

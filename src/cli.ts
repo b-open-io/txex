@@ -8,7 +8,7 @@
  */
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import chalk from "chalk";
 import { Command } from "commander";
@@ -184,13 +184,18 @@ program
 							outputPath = `${txid}_${vout}_${transformHash}${ext}`;
 						}
 
-						await writeFile(outputPath, cached);
+						const absolutePath = resolve(outputPath);
+						await writeFile(absolutePath, cached);
 
 						if (!quiet) {
 							console.log(
 								chalk.green("✓"),
-								chalk.green(outputPath),
+								chalk.green("Extracted"),
 								chalk.dim("(cached)"),
+							);
+							console.log(
+								chalk.dim("  → ") +
+									chalk.underline.cyan(absolutePath),
 							);
 							console.log(
 								chalk.dim("  └─ ") +
@@ -263,10 +268,17 @@ program
 				}
 
 				// Write file
-				await writeFile(outputPath, outputData);
+				const absolutePath = resolve(outputPath);
+				await writeFile(absolutePath, outputData);
 
 				if (!quiet) {
-					spinner.succeed(chalk.green(outputPath));
+					spinner.succeed(chalk.green("Extracted"));
+
+					// Show saved path (underlined for clickability)
+					console.log(
+						chalk.dim("  → ") +
+							chalk.underline.cyan(absolutePath),
+					);
 
 					// Show details
 					const details = [
