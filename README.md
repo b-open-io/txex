@@ -16,7 +16,7 @@
 ## Installation
 
 ```bash
-npm install -g txex
+bun add -g txex
 ```
 
 ## Table of Contents
@@ -209,7 +209,7 @@ txex cache --clear   # Clear all cached data
 `txex` is fully typed. Install it locally:
 
 ```bash
-npm install txex
+bun add txex
 ```
 
 ```typescript
