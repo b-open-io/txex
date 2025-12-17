@@ -9,6 +9,8 @@ Set Height 450
 Set Theme "Catppuccin Mocha"
 Set TypingSpeed 35ms
 Set Padding 20
+Set Shell zsh
+Env PATH "/Users/satchmo/.bun/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
 # Extract an image inscription
 Type "txex 8c4400b113c956748953ce20da2a0290a0dde3f9a6d7d1f68e290b2799805440_0 -o ape.jpg"
