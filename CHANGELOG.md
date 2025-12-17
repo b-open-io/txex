@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.0.4] - 2025-12-16
+
+### Added
+- **Audio transforms**: Format conversion (mp3/wav/ogg/flac/aac/m4a), bitrate, sample rate, channels, trim, normalize
+- **`txex info` command**: Metadata inspection without extraction (protocol, media type, size, origin)
+- **`txex color` command**: Extract dominant color, palette, and BlurHash from images
+- **SVG rasterization**: SVGs auto-convert to PNG with 150 DPI density
+- **Position/gravity for crops**: `--position` flag (center, top, entropy, attention, etc.)
+- **StorageProvider interface**: Pluggable storage backends (Redis, S3, Cloudflare KV, etc.)
+- **MemoryStorage**: In-memory storage for testing/ephemeral use
+
+### Changed
+- Removed WhatsOnChain fallback - JungleBus only
+- Consolidated providers into single junglebus.ts module
+
 ## [0.0.3] - 2025-12-16
 
 ### Added
