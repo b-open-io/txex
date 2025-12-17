@@ -14,6 +14,8 @@ export interface TransformOptions {
 	height?: number;
 	/** Resize fit mode */
 	fit?: "cover" | "contain" | "fill" | "inside" | "outside";
+	/** Position/gravity for crop (when fit is cover) */
+	position?: "center" | "top" | "right" | "bottom" | "left" | "top-left" | "top-right" | "bottom-left" | "bottom-right" | "entropy" | "attention";
 	/** Output format */
 	format?: "webp" | "avif" | "png" | "jpg" | "jpeg";
 	/** Quality 1-100 */
@@ -77,10 +79,27 @@ export async function transformImage(
 
 	// Resize
 	if (options.width || options.height) {
+		// Map position names to sharp position values
+		const positionMap: Record<string, string> = {
+			"center": "centre",
+			"top": "north",
+			"right": "east",
+			"bottom": "south",
+			"left": "west",
+			"top-left": "northwest",
+			"top-right": "northeast",
+			"bottom-left": "southwest",
+			"bottom-right": "southeast",
+			"entropy": "entropy",
+			"attention": "attention",
+		};
+		const position = options.position ? positionMap[options.position] : undefined;
+
 		pipeline = pipeline.resize({
 			width: options.width,
 			height: options.height,
 			fit: options.fit ?? "cover",
+			position,
 			withoutEnlargement: !isSvg(inputMediaType), // SVGs can be upscaled
 		});
 	}

@@ -265,6 +265,7 @@ program
 	.option("-h, --height <px>", "Resize height")
 	.option("-f, --format <fmt>", "Output format (webp, avif, png, jpg)")
 	.option("--fit <mode>", "Resize fit (cover, contain, fill, inside)", "cover")
+	.option("--position <pos>", "Crop position (center, top, bottom, left, right, entropy, attention)")
 	.option("--quality <n>", "Output quality 1-100", "80")
 	.option("--blur <radius>", "Blur radius (0.3-1000)")
 	.option("--grayscale", "Convert to grayscale")
@@ -342,11 +343,13 @@ program
 				if (options.flip) transformOpts.flip = true;
 				if (options.flop) transformOpts.flop = true;
 
-				// Only include fit/quality if there's a resize or format conversion
+				// Only include fit/quality/position if there's a resize or format conversion
 				const hasTransforms = Object.keys(transformOpts).length > 0;
 				if (hasTransforms) {
 					if (options.fit && options.fit !== "cover")
 						transformOpts.fit = options.fit as TransformOptions["fit"];
+					if (options.position)
+						transformOpts.position = options.position as TransformOptions["position"];
 					if (options.quality && options.quality !== "80")
 						transformOpts.quality = Number.parseInt(
 							options.quality as string,
