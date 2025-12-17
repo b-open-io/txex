@@ -9,10 +9,9 @@ Transaction File Extractor - Extract and transform files from BSV transactions.
 - **Multi-protocol support**: B://, BCAT (chunked), 1Sat Ordinals, ORDFS Streams
 - **Ordinal chain tracking**: Follow ordinals across spends for streaming content
 - **Parallel fetching**: Concurrent chunk downloads with configurable concurrency
-- **Image transforms**: Cloudinary-style resize, crop, format conversion
+- **Image transforms**: Resize, crop, format conversion via sharp
 - **Smart caching**: Two-tier cache for raw transactions and transformed outputs
 - **Config file**: Set defaults via `.txexrc` or `txex.config.json`
-- **Beautiful CLI**: Colorized output with progress spinners
 
 ## Installation
 
@@ -41,6 +40,8 @@ txex abc123...def456 -c 10                # 10 parallel chunk fetches
 
 ### Collections
 
+![Collections Demo](demo-collections.gif)
+
 ```bash
 # Download entire collection (auto-detected)
 txex <collection_outpoint>
@@ -53,6 +54,8 @@ txex <collection_outpoint> -o ./my-collection
 ```
 
 ### Image Transforms
+
+![Transforms Demo](demo-transforms.gif)
 
 ```bash
 # Resize to width
