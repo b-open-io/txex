@@ -26,6 +26,7 @@ npm install -g txex
   - [Basic Extraction](#basic-extraction)
   - [Collections](#collections)
   - [Image Transforms](#image-transforms)
+  - [Video Transforms](#video-transforms)
   - [Cache Management](#cache-management)
 - [Library Usage](#library-usage)
 - [Configuration](#configuration)
@@ -35,7 +36,7 @@ npm install -g txex
 ## Features
 
 - **Universal Extraction** - Seamlessly handles B://, BCAT, 1Sat Ordinals, and ORDFS Streams
-- **Built-in Image Processing** - Resize, crop, blur, and convert formats on the fly via `sharp`
+- **Media Processing** - Resize, crop, format conversion for images (sharp) and video (ffmpeg)
 - **Collection Downloads** - Auto-detect and download entire NFT collections in parallel
 - **Origin Tracking** - Automatically traces marketplace listings back to their inscription
 - **Smart Caching** - Two-tier cache for raw transactions and transformed outputs
@@ -100,6 +101,36 @@ txex <outpoint> -w 1200 -h 630 --fit cover -f webp -o og.webp
 | `--rotate <deg>` | | Rotate degrees |
 | `--flip` | | Flip vertically |
 | `--flop` | | Flip horizontally |
+
+### Video Transforms
+
+Requires [ffmpeg](https://ffmpeg.org/download.html) installed.
+
+```bash
+# Extract thumbnail at 5 seconds
+txex <outpoint> --thumbnail 5 -w 320 -o thumb.jpg
+
+# Convert to WebM, resize, trim to 10 seconds
+txex <outpoint> -w 720 -f webm --duration 10 -o clip.webm
+
+# Extract GIF preview (first 3 seconds, 10fps)
+txex <outpoint> -w 480 -f gif --duration 3 --fps 10 -o preview.gif
+
+# Strip audio
+txex <outpoint> -f mp4 --no-audio -o silent.mp4
+```
+
+#### Video Options
+
+| Option | Description |
+|--------|-------------|
+| `--thumbnail <time>` | Extract frame at timestamp (e.g., `5` or `00:00:05`) |
+| `--thumbnail-format` | Thumbnail format: `jpg`, `png`, `webp` (default: jpg) |
+| `--start <time>` | Trim start time |
+| `--duration <time>` | Trim duration |
+| `--fps <n>` | Output frames per second |
+| `--no-audio` | Strip audio track |
+| `-f <fmt>` | Output format: `mp4`, `webm`, `gif`, `mov` |
 
 ### Cache Management
 

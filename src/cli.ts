@@ -21,9 +21,9 @@ import {
 	writeTransformCache,
 } from "./cache.js";
 import {
+	type CollectionItem,
 	checkIfCollection,
 	fetchCollectionItems,
-	type CollectionItem,
 } from "./collection.js";
 import { loadConfig, mergeWithConfig } from "./config.js";
 import {
@@ -40,6 +40,14 @@ import {
 	type TransformOptions,
 	transformImage,
 } from "./transform.js";
+import {
+	checkFfmpeg,
+	getVideoTransformMimeType,
+	hashVideoTransformOptions,
+	isTransformableVideo,
+	transformVideo,
+	type VideoTransformOptions,
+} from "./video.js";
 
 // Read version from package.json
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -253,6 +261,20 @@ program
 	.option("--rotate <deg>", "Rotate degrees")
 	.option("--flip", "Flip vertically")
 	.option("--flop", "Flip horizontally")
+	// Video-specific options
+	.option(
+		"--thumbnail <time>",
+		"Extract frame at timestamp (e.g., 00:00:05 or 5)",
+	)
+	.option(
+		"--thumbnail-format <fmt>",
+		"Thumbnail format (jpg, png, webp)",
+		"jpg",
+	)
+	.option("--start <time>", "Trim start time")
+	.option("--duration <time>", "Trim duration")
+	.option("--fps <n>", "Output frames per second")
+	.option("--no-audio", "Strip audio from video")
 	.option("--no-cache", "Disable caching")
 	.action(
 		async (
@@ -344,8 +366,7 @@ program
 								chalk.dim("(cached)"),
 							);
 							console.log(
-								chalk.dim("  → ") +
-									chalk.underline.cyan(absolutePath),
+								chalk.dim("  → ") + chalk.underline.cyan(absolutePath),
 							);
 							console.log(
 								chalk.dim("  └─ ") +
@@ -377,25 +398,94 @@ program
 				let outputData = file.data;
 				let outputMimeType = file.mediaType;
 
-				// Apply transforms if requested and file is an image
-				if (hasTransforms) {
-					if (!isTransformableImage(file.mediaType)) {
-						throw new ProtocolError(
-							`Cannot transform ${file.mediaType} - only images supported`,
+				// Build video transform options
+				const videoOpts: VideoTransformOptions = {};
+				if (options.width)
+					videoOpts.width = Number.parseInt(options.width as string, 10);
+				if (options.height)
+					videoOpts.height = Number.parseInt(options.height as string, 10);
+				if (options.thumbnail)
+					videoOpts.thumbnail = options.thumbnail as string;
+				if (options.thumbnailFormat)
+					videoOpts.thumbnailFormat =
+						options.thumbnailFormat as VideoTransformOptions["thumbnailFormat"];
+				if (options.start) videoOpts.start = options.start as string;
+				if (options.duration) videoOpts.duration = options.duration as string;
+				if (options.fps)
+					videoOpts.fps = Number.parseInt(options.fps as string, 10);
+				if (options.audio === false) videoOpts.noAudio = true;
+				if (
+					options.format &&
+					["mp4", "webm", "gif", "mov"].includes(options.format as string)
+				)
+					videoOpts.format = options.format as VideoTransformOptions["format"];
+				// Only pass quality to video if explicitly set (not the default "80")
+				if (options.quality && options.quality !== "80")
+					videoOpts.quality = Number.parseInt(options.quality as string, 10);
+				if (options.fit)
+					videoOpts.fit = options.fit as VideoTransformOptions["fit"];
+
+				const hasVideoTransforms = Object.keys(videoOpts).length > 0;
+				const isVideo = isTransformableVideo(file.mediaType);
+				const isImage = isTransformableImage(file.mediaType);
+
+				// Apply transforms based on media type
+				if (hasTransforms || hasVideoTransforms) {
+					if (isVideo) {
+						// Video transforms via ffmpeg
+						const ffmpegOk = await checkFfmpeg();
+						if (!ffmpegOk) {
+							throw new ProtocolError(
+								"ffmpeg not found. Install ffmpeg for video transforms: https://ffmpeg.org/download.html",
+							);
+						}
+
+						if (!quiet) {
+							spinner.text = "Applying video transforms...";
+						}
+
+						outputData = await transformVideo(
+							file.data,
+							videoOpts,
+							file.mediaType,
 						);
-					}
+						outputMimeType = getVideoTransformMimeType(
+							file.mediaType,
+							videoOpts,
+						);
 
-					if (!quiet) {
-						spinner.text = "Applying transforms...";
-					}
+						// Cache the transformed result
+						if (!cacheDisabled) {
+							const videoHash = hashVideoTransformOptions(videoOpts);
+							const ext = getExtension(outputMimeType);
+							await writeTransformCache(outpoint, videoHash, ext, outputData);
+						}
+					} else if (isImage && hasTransforms) {
+						// Image transforms via sharp
+						if (!quiet) {
+							spinner.text = "Applying image transforms...";
+						}
 
-					outputData = await transformImage(file.data, transformOpts);
-					outputMimeType = getTransformMimeType(file.mediaType, transformOpts);
+						outputData = await transformImage(file.data, transformOpts);
+						outputMimeType = getTransformMimeType(
+							file.mediaType,
+							transformOpts,
+						);
 
-					// Cache the transformed result
-					if (!cacheDisabled) {
-						const ext = getExtension(outputMimeType);
-						await writeTransformCache(outpoint, transformHash, ext, outputData);
+						// Cache the transformed result
+						if (!cacheDisabled) {
+							const ext = getExtension(outputMimeType);
+							await writeTransformCache(
+								outpoint,
+								transformHash,
+								ext,
+								outputData,
+							);
+						}
+					} else {
+						throw new ProtocolError(
+							`Cannot transform ${file.mediaType} - unsupported media type`,
+						);
 					}
 				}
 
@@ -425,10 +515,7 @@ program
 					spinner.succeed(chalk.green("Extracted"));
 
 					// Show saved path (underlined for clickability)
-					console.log(
-						chalk.dim("  → ") +
-							chalk.underline.cyan(absolutePath),
-					);
+					console.log(chalk.dim("  → ") + chalk.underline.cyan(absolutePath));
 
 					// Show details
 					const details = [

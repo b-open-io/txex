@@ -77,7 +77,7 @@ export {
 // Providers
 export { fetchRawTx, fetchTx, fetchTxBatch } from "./providers/woc.js";
 
-// Transforms
+// Image transforms
 export type { TransformOptions } from "./transform.js";
 export {
 	getTransformMimeType,
@@ -85,3 +85,14 @@ export {
 	isTransformableImage,
 	transformImage,
 } from "./transform.js";
+
+// Video transforms
+export type { VideoTransformOptions } from "./video.js";
+export {
+	checkFfmpeg,
+	getVideoTransformMimeType,
+	hashVideoTransformOptions,
+	isTransformableAudio,
+	isTransformableVideo,
+	transformVideo,
+} from "./video.js";
