@@ -1,6 +1,8 @@
 /**
  * Unified Cache Module
  * Supports raw tx caching and transformed output caching
+ *
+ * Uses StorageProvider if set, otherwise falls back to filesystem
  */
 
 import { existsSync } from "node:fs";
@@ -14,25 +16,31 @@ import {
 } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import {
+	STORAGE_PREFIX,
+	getStorageProvider,
+	transformKey,
+	txKey,
+} from "./storage.js";
 
 const DEFAULT_CACHE_DIR = join(homedir(), ".txex", "cache");
 
 export interface CacheOptions {
-	/** Custom cache directory */
+	/** Custom cache directory (filesystem only) */
 	cacheDir?: string;
 	/** Disable caching */
 	disabled?: boolean;
 }
 
 /**
- * Get cache directory
+ * Get cache directory (filesystem mode)
  */
 export function getCacheDir(options?: CacheOptions): string {
 	return options?.cacheDir ?? DEFAULT_CACHE_DIR;
 }
 
 /**
- * Ensure cache directory exists
+ * Ensure cache directory exists (filesystem mode)
  */
 async function ensureDir(dir: string): Promise<void> {
 	if (!existsSync(dir)) {
@@ -41,7 +49,7 @@ async function ensureDir(dir: string): Promise<void> {
 }
 
 /**
- * Get cache path for raw transaction
+ * Get cache path for raw transaction (filesystem mode)
  */
 export function getTxCachePath(txid: string, options?: CacheOptions): string {
 	const cacheDir = getCacheDir(options);
@@ -50,8 +58,7 @@ export function getTxCachePath(txid: string, options?: CacheOptions): string {
 }
 
 /**
- * Get cache path for transformed output
- * Uses outpoint + transform hash for unique key
+ * Get cache path for transformed output (filesystem mode)
  */
 export function getTransformCachePath(
 	outpoint: string,
@@ -70,6 +77,7 @@ export function getTransformCachePath(
 
 /**
  * Read from transaction cache
+ * Uses StorageProvider if set, otherwise filesystem
  */
 export async function readTxCache(
 	txid: string,
@@ -77,6 +85,13 @@ export async function readTxCache(
 ): Promise<string | null> {
 	if (options?.disabled) return null;
 
+	const storage = getStorageProvider();
+	if (storage) {
+		const data = await storage.get(txKey(txid));
+		return data ? new TextDecoder().decode(data) : null;
+	}
+
+	// Filesystem fallback
 	const path = getTxCachePath(txid, options);
 	try {
 		return await readFile(path, "utf8");
@@ -87,6 +102,7 @@ export async function readTxCache(
 
 /**
  * Write to transaction cache
+ * Uses StorageProvider if set, otherwise filesystem
  */
 export async function writeTxCache(
 	txid: string,
@@ -95,6 +111,13 @@ export async function writeTxCache(
 ): Promise<void> {
 	if (options?.disabled) return;
 
+	const storage = getStorageProvider();
+	if (storage) {
+		await storage.set(txKey(txid), new TextEncoder().encode(hex));
+		return;
+	}
+
+	// Filesystem fallback
 	const path = getTxCachePath(txid, options);
 	const dir = join(path, "..");
 	await ensureDir(dir);
@@ -103,6 +126,7 @@ export async function writeTxCache(
 
 /**
  * Read from transform cache
+ * Uses StorageProvider if set, otherwise filesystem
  */
 export async function readTransformCache(
 	outpoint: string,
@@ -112,12 +136,13 @@ export async function readTransformCache(
 ): Promise<Uint8Array | null> {
 	if (options?.disabled) return null;
 
-	const path = getTransformCachePath(
-		outpoint,
-		transformHash,
-		extension,
-		options,
-	);
+	const storage = getStorageProvider();
+	if (storage) {
+		return storage.get(transformKey(outpoint, transformHash, extension));
+	}
+
+	// Filesystem fallback
+	const path = getTransformCachePath(outpoint, transformHash, extension, options);
 	try {
 		const buffer = await readFile(path);
 		return new Uint8Array(buffer);
@@ -128,6 +153,7 @@ export async function readTransformCache(
 
 /**
  * Write to transform cache
+ * Uses StorageProvider if set, otherwise filesystem
  */
 export async function writeTransformCache(
 	outpoint: string,
@@ -138,12 +164,14 @@ export async function writeTransformCache(
 ): Promise<void> {
 	if (options?.disabled) return;
 
-	const path = getTransformCachePath(
-		outpoint,
-		transformHash,
-		extension,
-		options,
-	);
+	const storage = getStorageProvider();
+	if (storage) {
+		await storage.set(transformKey(outpoint, transformHash, extension), data);
+		return;
+	}
+
+	// Filesystem fallback
+	const path = getTransformCachePath(outpoint, transformHash, extension, options);
 	const dir = join(path, "..");
 	await ensureDir(dir);
 	await writeFile(path, data);
@@ -153,6 +181,13 @@ export async function writeTransformCache(
  * Clear entire cache
  */
 export async function clearCache(options?: CacheOptions): Promise<void> {
+	const storage = getStorageProvider();
+	if (storage?.clear) {
+		await storage.clear();
+		return;
+	}
+
+	// Filesystem fallback
 	const cacheDir = getCacheDir(options);
 	await rm(cacheDir, { recursive: true, force: true });
 }
@@ -166,6 +201,33 @@ export async function getCacheStats(options?: CacheOptions): Promise<{
 	transformFiles: number;
 	transformSize: number;
 }> {
+	const storage = getStorageProvider();
+	if (storage?.list) {
+		// Storage provider mode
+		const txKeys = await storage.list(STORAGE_PREFIX.TX);
+		const transformKeys = await storage.list(STORAGE_PREFIX.TRANSFORM);
+
+		let txSize = 0;
+		let transformSize = 0;
+
+		for (const key of txKeys) {
+			const data = await storage.get(key);
+			if (data) txSize += data.length;
+		}
+		for (const key of transformKeys) {
+			const data = await storage.get(key);
+			if (data) transformSize += data.length;
+		}
+
+		return {
+			txFiles: txKeys.length,
+			txSize,
+			transformFiles: transformKeys.length,
+			transformSize,
+		};
+	}
+
+	// Filesystem fallback
 	const cacheDir = getCacheDir(options);
 	const stats = { txFiles: 0, txSize: 0, transformFiles: 0, transformSize: 0 };
 

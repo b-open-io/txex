@@ -32,6 +32,7 @@ npm install -g txex
   - [Color Extraction](#color-extraction)
   - [Cache Management](#cache-management)
 - [Library Usage](#library-usage)
+- [Custom Storage](#custom-storage)
 - [Configuration](#configuration)
 - [Supported Protocols](#supported-protocols)
 - [Data Providers](#data-providers)
@@ -248,6 +249,53 @@ for await (const chunk of streamContent({ txid: "abc123...", vout: 0 })) {
   console.log(chunk.mediaType, chunk.data.length);
 }
 ```
+
+## Custom Storage
+
+By default, txex uses the filesystem for caching (`~/.txex/cache/`). For serverless/edge environments, you can provide a custom storage backend:
+
+```typescript
+import { setStorageProvider, extract } from "txex";
+
+// In-memory storage (for testing or ephemeral use)
+import { MemoryStorage } from "txex";
+setStorageProvider(new MemoryStorage());
+
+// Custom storage (Redis, S3, Cloudflare KV, etc.)
+setStorageProvider({
+  async get(key) {
+    const data = await redis.getBuffer(key);
+    return data ? new Uint8Array(data) : null;
+  },
+  async set(key, data) {
+    await redis.set(key, Buffer.from(data));
+  },
+  async delete(key) {
+    await redis.del(key);
+  },
+  // Optional methods for stats/cleanup
+  async list(prefix) { /* ... */ },
+  async clear(prefix) { /* ... */ },
+});
+
+// Now extract uses your storage
+const file = await extract("abc123_0");
+```
+
+### StorageProvider Interface
+
+```typescript
+interface StorageProvider {
+  get(key: string): Promise<Uint8Array | null>;
+  set(key: string, data: Uint8Array): Promise<void>;
+  delete(key: string): Promise<void>;
+  has?(key: string): Promise<boolean>;      // optional
+  list?(prefix: string): Promise<string[]>; // optional
+  clear?(prefix?: string): Promise<void>;   // optional
+}
+```
+
+Keys are prefixed with `tx:` for raw transactions and `tfm:` for transformed outputs.
 
 ## Configuration
 

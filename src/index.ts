@@ -18,6 +18,17 @@ export {
 	writeTxCache,
 } from "./cache.js";
 
+// Storage (pluggable backend)
+export type { StorageProvider } from "./storage.js";
+export {
+	getStorageProvider,
+	MemoryStorage,
+	setStorageProvider,
+	STORAGE_PREFIX,
+	transformKey,
+	txKey,
+} from "./storage.js";
+
 // Config
 export type { TxexConfig } from "./config.js";
 export { hashConfig, loadConfig, mergeWithConfig } from "./config.js";
