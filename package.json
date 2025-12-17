@@ -6,7 +6,7 @@
 	"main": "src/index.ts",
 	"module": "src/index.ts",
 	"bin": {
-		"txex": "./src/cli.ts"
+		"txex": "src/cli.ts"
 	},
 	"files": [
 		"src"
